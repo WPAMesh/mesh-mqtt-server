@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (h *MeshtasticHook) TryProcessMeshPacket(env *pb.ServiceEnvelope) bool {
+func (h *MeshtasticHook) TryProcessMeshPacket(clientID string, env *pb.ServiceEnvelope) bool {
 
 	pkt := env.GetPacket()
 	if pkt == nil {
@@ -26,7 +26,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(env *pb.ServiceEnvelope) bool {
 		return false
 	}
 
-	h.processMeshPacket(env, decoded)
+	h.processMeshPacket(clientID, env, decoded)
 
 	if !shouldReencrypt {
 		pkt.PayloadVariant = &pb.MeshPacket_Decoded{
@@ -48,7 +48,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(env *pb.ServiceEnvelope) bool {
 	return true
 }
 
-func (h *MeshtasticHook) processMeshPacket(env *pb.ServiceEnvelope, data *pb.Data) {
+func (h *MeshtasticHook) processMeshPacket(clientID string, env *pb.ServiceEnvelope, data *pb.Data) {
 	switch data.Portnum {
 	case pb.PortNum_TRACEROUTE_APP:
 		var r = pb.RouteDiscovery{}
@@ -60,7 +60,39 @@ func (h *MeshtasticHook) processMeshPacket(env *pb.ServiceEnvelope, data *pb.Dat
 				data.Payload = payload
 			}
 		}
+	case pb.PortNum_NODEINFO_APP:
+		var u = pb.User{}
+		err := proto.Unmarshal(data.Payload, &u)
+		if err == nil {
+			go h.processNodeInfo(clientID, env, &u)
+		}
 	}
+
+}
+
+func (h *MeshtasticHook) processNodeInfo(clientID string, env *pb.ServiceEnvelope, user *pb.User) {
+	h.clientLock.RLock()
+	defer h.clientLock.RUnlock()
+	c, ok := h.knownClients[clientID]
+	if !ok || !c.IsMeshDevice() {
+		// The only time this should happen is when a client sends a node info
+		// and immediately loses connection
+		return
+	}
+
+	if c.NodeID == "" {
+		// Proxied clients don't always connect with a client ID that contains the node ID
+		c.NodeID = env.GatewayId
+	}
+
+	//clientNode, _ := meshtastic.ParseNodeID(c.NodeID)
+	if c.NodeID != user.Id {
+		// Relayed from the mesh, we don't care about it
+		return
+	}
+	c.LongName = user.LongName
+	c.ShortName = user.ShortName
+	// TODO: Update database record as well
 }
 
 func (c *MeshtasticHook) processTraceroute(env *pb.ServiceEnvelope, data *pb.Data, disco *pb.RouteDiscovery) {

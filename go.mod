@@ -5,9 +5,11 @@ go 1.24.3
 require github.com/go-git/go-git/v6 v6.0.0-20250728093604-6aaf1933ecab
 
 require (
+	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -40,6 +42,8 @@ require (
 	github.com/go-git/go-billy/v6 v6.0.0-20250627091229-31e2a16eef30 // indirect
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/gorilla/mux v1.8.1
+	github.com/gorilla/sessions v1.4.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/mochi-mqtt/server/v2 v2.7.9
@@ -52,5 +56,6 @@ require (
 	golang.org/x/exp v0.0.0-20250531010427-b6e5de432a8b // indirect
 	golang.org/x/mod v0.27.0
 	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sys v0.34.0 // indirect
 )

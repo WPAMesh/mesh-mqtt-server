@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	cfg "github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
+	"github.com/kabili207/mesh-mqtt-server/pkg/routes"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
@@ -88,7 +89,10 @@ func main() {
 	}
 
 	// Add custom hook (ExampleHook) to the server
-	err = server.AddHook(new(hooks.MeshtasticHook), &hooks.MeshtasticHookOptions{
+
+	meshHook := new(hooks.MeshtasticHook)
+
+	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
 		Server:  server,
 		Storage: storage,
 	})
@@ -105,37 +109,15 @@ func main() {
 		}
 	}()
 
-	// Demonstration of directly publishing messages to a topic via the
-	// `server.Publish` method. Subscribe to `direct/publish` using your
-	// MQTT client to see the messages.
-	//go func() {
-	//	cl := server.NewClient(nil, "local", "inline", true)
-	//	for range time.Tick(time.Second * 1) {
-	//		err := server.InjectPacket(cl, packets.Packet{
-	//			FixedHeader: packets.FixedHeader{
-	//				Type: packets.Publish,
-	//			},
-	//			TopicName: "direct/publish",
-	//			Payload:   []byte("injected scheduled message"),
-	//		})
-	//		if err != nil {
-	//			server.Log.Error("server.InjectPacket", "error", err)
-	//		}
-	//		server.Log.Info("main.go injected packet to direct/publish")
-	//	}
-	//}()
-	//
-	//// There is also a shorthand convenience function, Publish, for easily sending
-	//// publish packets if you are not concerned with creating your own packets.
-	//go func() {
-	//	for range time.Tick(time.Second * 5) {
-	//		err := server.Publish("direct/publish", []byte("packet scheduled message"), false, 0)
-	//		if err != nil {
-	//			server.Log.Error("server.Publish", "error", err)
-	//		}
-	//		server.Log.Info("main.go issued direct message to direct/publish")
-	//	}
-	//}()
+	router := &routes.WebRouter{
+		MqttServer: meshHook,
+	}
+	go func() {
+		err := router.Initialize(config, *storage)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	<-done
 	server.Log.Warn("caught signal, stopping...")

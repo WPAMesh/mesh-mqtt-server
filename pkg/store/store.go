@@ -17,15 +17,17 @@ var dbMigrations embed.FS
 
 // Stores one stop for stores
 type Stores struct {
-	MqttUsers UserStore
-	db        *sqlx.DB
+	Users       UserStore
+	OAuthTokens OAuthTokenStore
+	db          *sqlx.DB
 }
 
 // New create all the stores
 func New(dbconn *sqlx.DB) (*Stores, error) {
 	return &Stores{
-		db:        dbconn,
-		MqttUsers: NewUsers(dbconn),
+		db:          dbconn,
+		Users:       NewUsers(dbconn),
+		OAuthTokens: NewOAuthTokens(dbconn),
 	}, nil
 }
 

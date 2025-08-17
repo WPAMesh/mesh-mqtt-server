@@ -1,0 +1,36 @@
+{{define "main"}}
+
+    <div class="wrapper">
+        <header>
+            <div class="logo-view">
+                <a href="/">
+                    <img class="logo" src="/static/pgh_mesh_nobg.svg" alt="Pittsburgh Mesh Logo"/>
+                    <span>MQTT Server</span>
+                </a>
+            </div>
+        </header>
+
+        {{range $i, $a := .Alerts }}
+        <div class="alert alert-{{$a.Type}}" id="alert-added-{{$i}}">
+            <span class="alert-text">{{$a.Message}}</span>
+            <span class="alert-detail">{{$a.Detail}}</span>
+            <script type="text/javascript">
+                $('#alert-added-{{$i}}').show(function () {
+                    $(this).fadeOut(3000);
+                });
+            </script>
+        </div>
+        {{end}}
+
+        <div class="mg-container">
+            {{template "content" .}}
+        </div>
+
+        <footer>
+            <a href="https://github.com/kabili207/mesh-mqtt-server">Github</a> | made by kabili207
+        </footer>
+
+    </div>
+    <script type="text/javascript">
+    </script>
+{{end}}

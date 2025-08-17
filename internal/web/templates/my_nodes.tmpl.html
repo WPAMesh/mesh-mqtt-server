@@ -1,0 +1,50 @@
+{{define "title"}}My Nodes - WPAmesh{{end}}
+
+{{define "content"}}
+
+
+<div id="tables-example">
+    <h3>Connected Nodes</h3>
+    <table class="table--responsive">
+        <thead>
+            <tr>
+                <th>Node ID</th>
+                <th>Name</th>
+                <th>Proxy Type</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        {{ range .ConnectedNodes}}
+        <tr>
+            <td>{{.NodeID}}</td>
+            <td>{{if .LongName}}{{.GetDisplayName}}{{else}}<i>unknown</i>{{end}}</td>
+            <td>{{if .ProxyType}}{{.ProxyType}}{{else}}<i>n/a</i>{{end}}</td>
+            <td>{{.Address}}</td>
+        </tr>
+        {{ end }}
+        </tbody>
+    </table>
+
+    <table class="table--responsive">
+        <h3>Other Connections</h3>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        {{ range .OtherClients}}
+        <tr>
+            <td>{{.ClientID}}</td>
+            <td>{{.Address}}</td>
+        </tr>
+        {{ end }}
+        </tbody>
+    </table>
+</div>
+
+{{end}}

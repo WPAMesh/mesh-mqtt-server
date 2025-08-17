@@ -1,0 +1,62 @@
+:root {
+
+  --mg-color-dark: hsl(255deg 0% 15%);
+  --mg-color-light: hsl(255deg 0% 85%);
+  --mg-color-primary: #50a367;
+  --mg-control-radius: 1rem;
+  --mg-input-radius: 1rem;
+  --mg-color-red: #dc3545;
+  --mg-color-orange: #fd7e14;
+  --mg-color-blue: #007bff;
+  --mg-color-green: #50a367;
+}
+
+/* For desktop: */
+
+html,
+body {
+  height: 100%;
+}
+
+.hidden-ux {
+  visibility: hidden;
+}
+.main {
+  height: 100%;
+}
+
+.main:has(.login-form) {
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wrapper {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.wrapper > header {
+  
+}
+
+.wrapper > footer {
+  padding: 1rem;
+}
+
+.logo {
+  width: 8rem;
+}
+
+.logo-view a > img,
+.logo-view a > span {
+  vertical-align: middle;
+  font-size: 5rem;
+}
+
+@media only screen and (max-width:420px) {
+
+  
+}

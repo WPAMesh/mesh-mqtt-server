@@ -5,25 +5,29 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
 	"github.com/mochi-mqtt/server/v2/packets"
 
 	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
+	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	meshDevicePattern = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
+	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
+	unknownProxyPattern = `^Meshtastic(Android|Apple)MqttProxy-(.+)$`
 
 	meshFilter        auth.RString = `msh/US/2/#`
 	meshGatewayFilter auth.RString = `msh/US/Gateway/2/#`
 )
 
 var (
-	meshDeviceRegex = regexp.MustCompile(meshDevicePattern)
+	meshDeviceRegex   = regexp.MustCompile(meshDevicePattern)
+	unknownProxyRegex = regexp.MustCompile(unknownProxyPattern)
 )
 
 // Options contains configuration settings for the hook.
@@ -32,16 +36,13 @@ type MeshtasticHookOptions struct {
 	Storage *store.Stores
 }
 
+var _ models.MeshMqttServer = (*MeshtasticHook)(nil)
+
 type MeshtasticHook struct {
 	mqtt.HookBase
 	config       *MeshtasticHookOptions
-	knownClients map[string]*ClientDetails
-}
-
-type ClientDetails struct {
-	UserID    string
-	NodeID    string
-	ProxyType string
+	knownClients map[string]*models.ClientDetails
+	clientLock   sync.RWMutex
 }
 
 func (h *MeshtasticHook) ID() string {
@@ -76,8 +77,23 @@ func (h *MeshtasticHook) Init(config any) error {
 		return mqtt.ErrInvalidConfigType
 	}
 
-	h.knownClients = make(map[string]*ClientDetails)
+	h.knownClients = make(map[string]*models.ClientDetails)
+
 	return nil
+}
+
+func (h *MeshtasticHook) GetUserClients(mqttUser string) []*models.ClientDetails {
+	userClients := []*models.ClientDetails{}
+	h.clientLock.RLock()
+	defer h.clientLock.RUnlock()
+
+	for _, c := range h.knownClients {
+		if c.UserID == mqttUser {
+			userClients = append(userClients, c)
+		}
+	}
+
+	return userClients
 }
 
 // OnConnectAuthenticate returns true if the connecting client has rules which provide access
@@ -97,13 +113,25 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 			matches := meshDeviceRegex.FindStringSubmatch(cl.ID)
 			proxyType = matches[1]
 			nodeID = matches[2]
+		} else if unknownProxyRegex.MatchString(cl.ID) {
+			matches := unknownProxyRegex.FindStringSubmatch(cl.ID)
+			proxyType = matches[1]
+			//nodeID = matches[2]
 		}
-		h.knownClients[clientID] = &ClientDetails{
+		h.clientLock.Lock()
+		h.knownClients[clientID] = &models.ClientDetails{
 			UserID:    user,
+			ClientID:  clientID,
 			NodeID:    nodeID,
 			ProxyType: proxyType,
+			Address:   cl.Net.Remote,
 		}
+		h.clientLock.Unlock()
 		h.Log.Info("client authenticated", "username", user, "client", clientID, "node", nodeID, "proxy", proxyType)
+
+		if nodeID != "" {
+			go h.RequestNodeInfo(cl.ID)
+		}
 	}
 
 	return validated
@@ -135,7 +163,9 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 		return false
 	}
 
+	h.clientLock.RLock()
 	cd, ok := h.knownClients[cl.ID]
+	h.clientLock.RUnlock()
 	if !ok {
 		h.Log.Warn("unknown client in ACL check",
 			"client", cl.ID,
@@ -144,20 +174,20 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 		return false
 	}
 
-	if cd.NodeID == "" {
+	if !cd.IsMeshDevice() {
 		// Non-mesh devices are only allowed to read
 		return !write
 	}
 
-	if !isGatewayTopic && (cd.UserID == "meshdev" || cd.ProxyType != "") {
+	if !isGatewayTopic || cd.ProxyType != "" {
 		// Default user ID or proxied nodes are only allowed to write
 		return write
 	}
 
-	if strings.HasPrefix(cd.UserID, "mesht-") {
-		// TODO: Only allow gateway nodes to read and write
-		return true
-	}
+	//if strings.HasPrefix(cd.UserID, "mesht-") {
+	// TODO: Only allow gateway nodes to read and write
+	return true
+	//}
 
 	// TODO: Check ACLs for other users
 
@@ -189,7 +219,17 @@ func (h *MeshtasticHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	return nil
 }
 
+func (h *MeshtasticHook) RequestNodeInfo(clientID string) {
+	//err := h.config.Server.Publish("hook/direct/publish", []byte("packet hook message"), false, 0)
+	//if err != nil {
+	//	h.Log.Error("hook.publish", "error", err)
+	//}
+}
+
 func (h *MeshtasticHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
+	h.clientLock.Lock()
+	delete(h.knownClients, cl.ID)
+	h.clientLock.Unlock()
 	if err != nil {
 		h.Log.Info("client disconnected", "client", cl.ID, "expire", expire, "error", err)
 	} else {
@@ -217,7 +257,7 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 			h.Log.Error("received non-mesh payload from client", "client", cl.ID, "payload", string(pk.Payload))
 			return pk, err
 		}
-		h.TryProcessMeshPacket(&env)
+		h.TryProcessMeshPacket(cl.ID, &env)
 		payload, err := proto.Marshal(&env)
 		if err != nil {
 			// Do not allow non-meshtastic payloads in the msh tree

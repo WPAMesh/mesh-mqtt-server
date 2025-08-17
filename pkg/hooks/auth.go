@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 )
@@ -17,7 +18,7 @@ func hashPasswordWithSalt(password, salt string) string {
 }
 
 func (h *MeshtasticHook) validateUser(user, pass string) bool {
-	u, err := h.config.Storage.MqttUsers.GetByUserName(user)
+	u, err := h.config.Storage.Users.GetByUserName(user)
 	if err != nil {
 		h.Log.Error("unable to query mqtt user", "hook", h.ID(), "user", user, "error", err)
 		return false
@@ -28,4 +29,18 @@ func (h *MeshtasticHook) validateUser(user, pass string) bool {
 	}
 	calcHash := hashPasswordWithSalt(pass, u.Salt)
 	return u.PasswordHash == calcHash
+}
+
+func randomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func generateHashAndSalt(password string) (hash string, salt string) {
+	salt, _ = randomHex(16)
+	hash = hashPasswordWithSalt(password, salt)
+	return
 }

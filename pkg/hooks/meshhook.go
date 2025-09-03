@@ -3,6 +3,7 @@ package hooks
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -90,6 +91,10 @@ func (h *MeshtasticHook) Init(config any) error {
 
 	h.knownClients = make(map[string]*models.ClientDetails)
 
+	hash, salt := generateHashAndSalt("i4fZfUBSQW*AriczfztH")
+	log.Printf("Hash: %s", hash)
+	log.Printf("Salt: %s", salt)
+
 	return nil
 }
 
@@ -164,7 +169,7 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 	if !ok {
 		h.Log.Warn("unknown client in ACL check",
 			"client", cl.ID,
-			"username", cd.MqttUserName,
+			"username", string(cl.Properties.Username),
 			"topic", topic)
 		return false
 	}
@@ -209,10 +214,10 @@ func (h *MeshtasticHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 }
 
 func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
-	h.clientLock.RLock()
-	cd, _ := h.knownClients[clientID]
-	h.clientLock.RUnlock()
-	if cd.VerifyPacketID == 0 && (!cd.IsVerified() || force) {
+	h.clientLock.Lock()
+	defer h.clientLock.Unlock()
+	cd, ok := h.knownClients[clientID]
+	if ok && cd.VerifyPacketID == 0 && (!cd.IsVerified() || force) {
 		h.RequestNodeInfo(cd)
 	}
 }
@@ -309,10 +314,9 @@ func (h *MeshtasticHook) TrySetRootTopic(cd *models.ClientDetails, topic string)
 
 func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 
-	if client.NodeDetails == nil || client.RootTopic == "" || !client.VerifyLock.TryLock() {
+	if client.NodeDetails == nil || client.RootTopic == "" {
 		return
 	}
-	defer client.VerifyLock.Unlock()
 
 	unmess := true
 	nodeInfo := pb.User{

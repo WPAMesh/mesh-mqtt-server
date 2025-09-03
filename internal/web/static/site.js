@@ -13,55 +13,17 @@ var debounce=function(a){var e;return function(){var n=this,i=arguments;e&&windo
 // calculate 40rem in px (based off body font size)
 var mqw = parseInt(getComputedStyle(document.body).fontSize) * 40;
 
-// handle responsive sidebar toggling
-$('#toggle-sidebar, #close-sidebar').on('click', function(){
-  if( window.innerWidth < mqw ) {
-    // toggle xs menu
-    console.log('Toggling XS menu', mqw, window.innerWidth);
-    if( $('#page-container').hasClass('sidebar-open-xs') ) {
-      $('#page-container').removeClass('sidebar-open-xs');
-      $('#sidebar').removeClass('open-xs');
-    } else {
-      $('#page-container').removeClass('sidebar-open-xs').addClass('sidebar-open-xs');
-      $('#sidebar').removeClass('open-xs').addClass('open-xs');
-    }
-  } else {
-    // toggle regular menu
-    console.log('Toggling regular menu', mqw, window.innerWidth);
-    if( $('#page-container').hasClass('sidebar-open') ) {
-      $('#page-container').removeClass('sidebar-open');
-      $('#sidebar').removeClass('open');
-    } else {
-      $('#page-container').removeClass('sidebar-open').addClass('sidebar-open');
-      $('#sidebar').removeClass('open').addClass('open');
-    }
-  }
-});
+// Selection of HTML objects
+const burger = document.querySelector('.burger i');
+const nav = document.querySelector('#header-nav');
 
-// check for resizing and remove XS sidebar when > 40rem
-$(window).on('resize', debounce(function(){
-  if( window.innerWidth > mqw ) {
-    $('#page-container').removeClass('sidebar-open-xs');
-  }
-}));
-
-// handle actionbar toggling
-$('#toggle-actionbar').on('click', function(){
-  $('#page-container').toggleClass('overlay-on actionbar-open');
-});
-$('#close-actionbar').on('click', function(){
-  $('#page-container').removeClass('overlay-on actionbar-open');
-});
-
-// handle sidebar & actionbar submenu toggling
-$('#sidebar li.sub-menu > a').on('click', function(e){
-  e.preventDefault();
-
-  if( $(this).parent().hasClass('open') ) {
-    $(this).parent().removeClass('open');
-    $(this).next('ul').slideUp();
-  } else {
-    $(this).parent().removeClass('open').addClass('open');
-    $(this).next('ul').slideDown();
-  }
+// Defining a function
+function toggleNav() {
+  burger.classList.toggle('fa-bars');
+  burger.classList.toggle('fa-times');
+  nav.classList.toggle('nav-active');
+}
+// Calling the function after click event occurs
+burger.addEventListener('click', function() {
+  toggleNav();
 });

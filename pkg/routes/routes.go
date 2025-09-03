@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"sort"
 
@@ -49,6 +49,7 @@ func push(w http.ResponseWriter, resource string) {
 func (wr *WebRouter) Initialize(config config.Configuration, store store.Stores) error {
 	wr.storage = store
 	wr.sessionStore = sessions.NewCookieStore([]byte(config.SessionSecret))
+	wr.sessionStore.Options.Secure = false
 	config.OAuth.Discord.RedirectURL = config.BaseURL + "/auth/discord/callback"
 	config.OAuth.Discord.Scopes = []string{
 		"identify",
@@ -91,8 +92,9 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 }
 
 func (wr *WebRouter) loginPage(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("endpoint hit", "endpoint", "loginPage")
 
-	session, _ := wr.getSession(r)
+	session, err := wr.getSession(r)
 	user, err := wr.getUser(session)
 	if err == nil && user != nil {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -101,7 +103,7 @@ func (wr *WebRouter) loginPage(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := web.GetHTMLTemplate("login")
 	if err != nil {
-		log.Printf("%q\n", err)
+		slog.Error("error loading login template", "error", err)
 	}
 
 	err = tmpl.ExecuteTemplate(w, "base", nil) /*PageVariables{
@@ -111,19 +113,17 @@ func (wr *WebRouter) loginPage(w http.ResponseWriter, r *http.Request) {
 		Alerts:    alerts,
 	}*/
 	if err != nil {
-		log.Println("Template error")
-		log.Println(err)
+		slog.Error("error executing login template", "error", err)
 		http.Error(w, "Error parsing template", 500)
 	}
 }
 
 func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
-	log.Println("Endpoint Hit: homePage")
+	slog.Debug("endpoint hit", "endpoint", "homePage")
 	session, _ := wr.getSession(r)
 	user, err := wr.getUser(session)
-	if err != nil {
+	if err != nil || user == nil {
 		http.Redirect(w, r, "/login", http.StatusFound)
-		//fmt.Fprintln(w, "<a href='/auth/discord/login'>Log in with Discord</a>")
 	} else {
 
 		clients := wr.MqttServer.GetUserClients(user.UserName)
@@ -169,7 +169,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, err := web.GetHTMLTemplate("my_nodes")
 		if err != nil {
-			log.Printf("%q\n", err)
+			slog.Error("error loading my_nodes template", "error", err)
 		}
 
 		err = tmpl.ExecuteTemplate(w, "base", PageVariables{
@@ -178,8 +178,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 			Alerts:         nil,
 		})
 		if err != nil {
-			log.Println("Template error")
-			log.Println(err)
+			slog.Error("error executing my_nodes template", "error", err)
 			http.Error(w, "Error parsing template", 500)
 		}
 	}

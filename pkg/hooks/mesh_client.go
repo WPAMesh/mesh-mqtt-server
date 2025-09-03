@@ -36,6 +36,7 @@ type PacketInfo struct {
 	To                 meshtastic.NodeID
 	RequestId, ReplyId uint32
 	WantResponse       bool
+	WantAck            bool
 	Emoji              bool
 }
 
@@ -94,8 +95,7 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 		data.Bitfield = &bits
 	}
 
-	// TODO: Figure out the appropriate situations where we *do* want an ACK
-	wantAck := false
+	wantAck := info.WantAck
 
 	now := time.Now()
 	msgTime := uint32(now.Unix())

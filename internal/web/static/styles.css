@@ -43,8 +43,23 @@ html * {
 }
 
 .wrapper > header {
-  
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
+
+.logo-view {
+  flex-grow: 1;
+}
+
+#header-nav {
+  font-size: 120%;
+}
+
+.mg-nav li {
+  padding: 0.75rem;
+}
+
 
 .wrapper > footer {
   padding: 1rem;
@@ -60,7 +75,14 @@ html * {
   font-size: 5rem;
 }
 
+.burger {
+  font-size: 1.2em;
+  display: none;
+}
+
 @media only screen and (max-width:420px) {
 
-  
+  .burger {
+    display: block;
+  }
 }

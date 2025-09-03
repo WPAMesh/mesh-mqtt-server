@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gorilla/sessions"
@@ -41,9 +42,20 @@ func generateStateOauthCookie(http.ResponseWriter) string {
 	return state
 }
 
+func (wr *WebRouter) getDiscordRedirectURI(r *http.Request) string {
+	redir, err := url.Parse(wr.config.OAuth.Discord.RedirectURL)
+	if err == nil {
+		redir.Host = r.Host
+	}
+	return redir.String()
+}
+
 func (wr *WebRouter) discordLoginHandler(w http.ResponseWriter, r *http.Request) {
 	oauthStateString := generateStateOauthCookie(w)
-	url := wr.config.OAuth.Discord.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+	redir := wr.getDiscordRedirectURI(r)
+	redirURI := oauth2.SetAuthURLParam("redirect_uri", redir)
+
+	url := wr.config.OAuth.Discord.AuthCodeURL(oauthStateString, oauth2.AccessTypeOffline, redirURI /*, oauth2.ApprovalForce*/)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -53,7 +65,10 @@ func (wr *WebRouter) userLogoutHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, err.Error())
 	}
 	session.Options.MaxAge = -1
-	session.Save(r, w)
+	err = session.Save(r, w)
+	if err != nil {
+		fmt.Fprint(w, err.Error())
+	}
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
@@ -62,23 +77,31 @@ func (wr *WebRouter) discordCallbackHandler(w http.ResponseWriter, r *http.Reque
 	session, err := wr.sessionStore.Get(r, sessionName)
 	if err != nil {
 		fmt.Fprint(w, err.Error())
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
 	}
-	data, err := wr.getUserDataFromDiscord(code)
+	data, err := wr.getUserDataFromDiscord(code, r)
 	if err != nil {
 		log.Println(err.Error())
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
 	session.Values["user_id"] = data.ID
-	session.Save(r, w)
+	err = session.Save(r, w)
+
+	if err != nil {
+		fmt.Fprint(w, err.Error())
+	}
 
 	log.Printf("User authenticated: %v", data)
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
-func (wr *WebRouter) getUserDataFromDiscord(code string) (*models.User, error) {
+func (wr *WebRouter) getUserDataFromDiscord(code string, r *http.Request) (*models.User, error) {
 	// Use code to get token and get user info from Google.
-	token, err := wr.config.OAuth.Discord.Exchange(context.Background(), code)
+	redir := wr.getDiscordRedirectURI(r)
+	redirURI := oauth2.SetAuthURLParam("redirect_uri", redir)
+	token, err := wr.config.OAuth.Discord.Exchange(context.Background(), code, redirURI)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed with error: %s", err.Error())
 	}

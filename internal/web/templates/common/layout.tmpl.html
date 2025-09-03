@@ -8,6 +8,13 @@
                     <span>MQTT Server</span>
                 </a>
             </div>
+            <nav id="header-nav">
+                <ul class="mg-nav mg-nav--inline" data-toggle="nav">
+                    <li class="active"><a href="#home">My Nodes</a></li>
+                    <li><a href="/auth/logout">Logout</a></li>
+                </ul>
+            </nav>
+            <div class="burger"><i class="fas fa-bars"></i></div>
         </header>
 
         {{range $i, $a := .Alerts }}

@@ -49,7 +49,7 @@ func push(w http.ResponseWriter, resource string) {
 func (wr *WebRouter) Initialize(config config.Configuration, store store.Stores) error {
 	wr.storage = store
 	wr.sessionStore = sessions.NewCookieStore([]byte(config.SessionSecret))
-	wr.sessionStore.Options.Secure = false
+	//wr.sessionStore.Options.Secure = false
 	config.OAuth.Discord.RedirectURL = config.BaseURL + "/auth/discord/callback"
 	config.OAuth.Discord.Scopes = []string{
 		"identify",

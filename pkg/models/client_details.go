@@ -97,7 +97,7 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	if c.NodeDetails == nil {
 		errs = append(errs, "Node info not received yet")
 	} else if c.NodeDetails.NodeRole == "" {
-		errs = append(errs, "Node role not yet known: %s")
+		errs = append(errs, "Node role not yet known")
 	} else if c.NodeDetails.NodeRole == pb.Config_DeviceConfig_CLIENT_MUTE.String() {
 		errs = append(errs, fmt.Sprintf("Invalid node role: %s", pb.Config_DeviceConfig_CLIENT_MUTE.String()))
 	} else if c.NodeDetails.NodeRole == pb.Config_DeviceConfig_ROUTER_CLIENT.String() {

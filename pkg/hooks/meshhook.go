@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -154,7 +153,9 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 			go h.TryVerifyNode(cl.ID, false)
 		}
 	}
-
+	if validatedUser == nil {
+		h.Log.Warn("authentication failed", "username", user, "remote_addr", cl.Net.Remote)
+	}
 	return validatedUser != nil
 }
 
@@ -216,7 +217,7 @@ func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
 	h.clientLock.Lock()
 	defer h.clientLock.Unlock()
 	cd, ok := h.knownClients[clientID]
-	if ok && cd.VerifyPacketID == 0 && (!cd.IsVerified() || force) {
+	if ok && !cd.IsPendingVerification() && (!cd.IsVerified() || force) {
 		h.RequestNodeInfo(cd)
 	}
 }
@@ -253,7 +254,7 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 	if err != nil {
 		// Do not allow non-meshtastic payloads in the msh tree
 		h.Log.Error("received non-mesh payload from client", "client", cl.ID, "payload", string(pk.Payload))
-		return pk, err
+		return pk, packets.ErrRejectPacket
 	}
 	h.clientLock.RLock()
 	cd, ok := h.knownClients[cl.ID]
@@ -338,9 +339,6 @@ func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 	})
 	if err == nil {
 		h.config.Server.Log.Info("verification packet sent to node", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic_root", client.RootTopic)
-		client.VerifyPacketID = pid
-		time.AfterFunc(5*time.Minute, func() {
-			client.VerifyPacketID = 0
-		})
+		client.SetVerificationPending(pid)
 	}
 }

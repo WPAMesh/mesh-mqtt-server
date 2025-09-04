@@ -26,6 +26,7 @@ type ClientDetails struct {
 	Address        string
 	RootTopic      string
 	VerifyPacketID uint32
+	VerifyReqTime  *time.Time
 
 	VerifyLock sync.RWMutex
 }
@@ -52,6 +53,24 @@ func (c *ClientDetails) GetDisplayName() string {
 		return "unknown"
 	}
 	return c.ClientID
+}
+
+func (c *ClientDetails) SetVerificationPending(packetID uint32) {
+	c.VerifyPacketID = packetID
+	if packetID == 0 {
+		c.VerifyReqTime = nil
+	} else {
+		now := time.Now()
+		c.VerifyReqTime = &now
+	}
+}
+
+func (c *ClientDetails) IsPendingVerification() bool {
+	if c.VerifyReqTime != nil {
+		expireDate := c.VerifyReqTime.Add(5 * time.Minute)
+		return time.Now().Before(expireDate)
+	}
+	return false
 }
 
 func (c *ClientDetails) IsVerified() bool {

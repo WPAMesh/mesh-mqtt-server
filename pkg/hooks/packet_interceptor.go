@@ -107,7 +107,7 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 	c.NodeDetails.LastSeen = radio.Ptr(time.Now())
 	save := true
 	if !c.IsVerified() {
-		if c.VerifyPacketID == 0 {
+		if !c.IsPendingVerification() {
 			go h.TryVerifyNode(c.ClientID, false)
 		} else {
 			if data.RequestId == c.VerifyPacketID {

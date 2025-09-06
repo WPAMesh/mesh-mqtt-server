@@ -134,7 +134,7 @@ func (c *NodeInfo) IsVerified() bool {
 func (c *NodeInfo) IsExpiringSoon() bool {
 	if c.VerifiedDate != nil {
 		expireDate := c.VerifiedDate.Add(MaxValidationAge / 3)
-		return time.Now().Before(expireDate)
+		return time.Now().After(expireDate)
 	}
 	return true
 }

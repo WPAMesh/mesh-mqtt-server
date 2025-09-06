@@ -206,7 +206,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 	} else {
 
-		clients := wr.MqttServer.GetUserClients(user.UserName)
+		clients := wr.MqttServer.GetAllClients()
 
 		nodes := []*models.ClientDetails{}
 		otherClients := []*models.ClientDetails{}

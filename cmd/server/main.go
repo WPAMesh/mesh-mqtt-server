@@ -136,6 +136,9 @@ func main() {
 func setupDatabase(config cfg.Configuration) (*sqlx.DB, error) {
 	// change "postgres" for whatever supported database you want to use
 
+	// PgBouncer has problems with prepared statements in transaction mode
+	// so we have to force binary_parameters
+	// https://blog.bullgare.com/2019/06/pgbouncer-and-prepared-statements/
 	opts := url.Values{}
 	opts.Add("binary_parameters", "yes")
 

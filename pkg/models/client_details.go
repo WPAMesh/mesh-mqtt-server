@@ -84,7 +84,7 @@ func (c *ClientDetails) IsVerified() bool {
 }
 
 func (c *ClientDetails) IsUsingGatewayTopic() bool {
-	return strings.HasSuffix("/Gateway", c.RootTopic)
+	return strings.HasSuffix(c.RootTopic, "/Gateway")
 }
 
 func (c *ClientDetails) IsValidGateway() bool {

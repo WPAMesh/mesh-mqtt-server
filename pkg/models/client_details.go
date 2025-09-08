@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,9 +83,13 @@ func (c *ClientDetails) IsVerified() bool {
 	return c.NodeDetails != nil && c.NodeDetails.IsVerified()
 }
 
+func (c *ClientDetails) IsUsingGatewayTopic() bool {
+	return strings.HasSuffix("/Gateway", c.RootTopic)
+}
+
 func (c *ClientDetails) IsValidGateway() bool {
 	return c.NodeDetails != nil && c.ProxyType == "" && c.IsVerified() &&
-		c.NodeDetails.NodeRole != "" &&
+		c.IsUsingGatewayTopic() && c.NodeDetails.NodeRole != "" &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_CLIENT_MUTE.String() &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_ROUTER_CLIENT.String()
 }
@@ -100,6 +105,11 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	if c.ProxyType != "" {
 		errs = append(errs, "Node is connected via client proxy")
 	}
+	if !c.IsUsingGatewayTopic() {
+		errs = append(errs, "Not using a gateway route topic")
+	} else if !c.IsVerified() {
+		errs = append(errs, "Downlink over LongFast has not been verified")
+	}
 	if c.NodeDetails == nil {
 		errs = append(errs, "Node info not received yet")
 	} else if c.NodeDetails.NodeRole == "" {
@@ -109,9 +119,7 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	} else if c.NodeDetails.NodeRole == pb.Config_DeviceConfig_ROUTER_CLIENT.String() {
 		errs = append(errs, fmt.Sprintf("Deprecated node role: %s", pb.Config_DeviceConfig_ROUTER_CLIENT.String()))
 	}
-	if !c.IsVerified() {
-		errs = append(errs, "Downlink over LongFast has not been verified")
-	}
+
 	return errs
 }
 

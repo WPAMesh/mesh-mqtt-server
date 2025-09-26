@@ -100,6 +100,13 @@ func (c *ClientDetails) SyncUserID() {
 	}
 }
 
+func (c *ClientDetails) GetNodeID() *meshtastic.NodeID {
+	if c.NodeDetails != nil && !c.NodeDetails.NodeID.IsReservedID() {
+		return &c.NodeDetails.NodeID
+	}
+	return nil
+}
+
 func (c *ClientDetails) GetValidationErrors() []string {
 	errs := []string{}
 	if c.ProxyType != "" {

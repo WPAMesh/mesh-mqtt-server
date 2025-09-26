@@ -24,20 +24,25 @@ const (
 	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
 	unknownProxyPattern = `^Meshtastic(Android|Apple)MqttProxy-(.+)$`
 	channelPattern      = `^(msh(?:\/[^\/\n]+?)*)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
-	gatewayTopicPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
-	gatewaySubPattern   = `^(msh(?:\/[^\/\n]+?|\+)*)(\/Gateway)((\/[^\/\n]+?|\+){4}|\/\#)$`
-	gatewayReplacement  = `$1/2/e/$3/$4`
+	gatewayTopicPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/([^/]+)\/(![a-f0-9]{8})$`
+
+	// Regex for exact gateway publish topic
+	gatewayPublishPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/[^/]+\/(![a-f0-9]{8})$`
+	gatewaySubPattern     = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/.*`
+
+	gatewayReplacement = `$1/2/e/$3/$4`
 
 	meshFilter auth.RString = `msh/#`
 	sysFilter  auth.RString = `$SYS/#`
 )
 
 var (
-	meshDeviceRegex   = regexp.MustCompile(meshDevicePattern)
-	unknownProxyRegex = regexp.MustCompile(unknownProxyPattern)
-	channelRegex      = regexp.MustCompile(channelPattern)
-	gatewayTopicRegex = regexp.MustCompile(gatewayTopicPattern)
-	gatewaySubRegex   = regexp.MustCompile(gatewaySubPattern)
+	meshDeviceRegex     = regexp.MustCompile(meshDevicePattern)
+	unknownProxyRegex   = regexp.MustCompile(unknownProxyPattern)
+	channelRegex        = regexp.MustCompile(channelPattern)
+	gatewayTopicRegex   = regexp.MustCompile(gatewayTopicPattern)
+	gatewayPublishRegex = regexp.MustCompile(gatewayPublishPattern)
+	gatewaySubRegex     = regexp.MustCompile(gatewaySubPattern)
 
 	// Allowed suffixes for concrete publish topics.
 	publishSuffixes = [][]string{
@@ -81,6 +86,7 @@ func (h *MeshtasticHook) Provides(b byte) bool {
 		mqtt.OnACLCheck,
 		mqtt.OnConnect,
 		mqtt.OnDisconnect,
+		mqtt.OnSubscribe,
 		mqtt.OnSubscribed,
 		mqtt.OnUnsubscribed,
 		mqtt.OnPublished,
@@ -105,7 +111,7 @@ func (h *MeshtasticHook) Init(config any) error {
 
 	h.knownClients = make(map[string]*models.ClientDetails)
 
-	hash, salt := generateHashAndSalt("N#8CFi*BPnrYTqaptpW9")
+	hash, salt := generateHashAndSalt("9VT#iTb2h&7Cs&RZkUYg")
 	log.Printf("Hash: %s", hash)
 	log.Printf("Salt: %s", salt)
 
@@ -138,8 +144,8 @@ func (h *MeshtasticHook) GetUserClients(mqttUser string) []*models.ClientDetails
 	return userClients
 }
 
-// OnConnectAuthenticate returns true if the connecting client has rules which provide access
-// in the auth ledger.
+// OnConnectAuthenticate returns true if the connecting client is allowed to connect
+// and stores details about the client for later
 func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
 	user := string(pk.Connect.Username)
 	pass := pk.Connect.Password
@@ -206,12 +212,12 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 
 	isSU, _ := h.config.Storage.Users.IsSuperuser(cd.UserID)
 
-	if !isSU && sysFilter.FilterMatches(topic) {
-		return false
+	if sysFilter.FilterMatches(topic) {
+		return isSU
 	}
 
 	if !cd.IsMeshDevice() {
-		// Non-mesh devices are only allowed to read
+		// Non-mesh devices are only allowed to read, unless they are superuser
 		return isSU || !write
 	}
 
@@ -227,63 +233,34 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 
 	// Any clients left should be a node, which are always allowed to write.
 	// Gateway validation is done elsewhere, so it's safe to allow anyone to read.
-	isAllowed := checkGatewayACL(topic, write)
+	isAllowed := h.checkGatewayACL(cd, topic, write)
 	//h.Log.Info("Gateway read check:", "client", cd.ClientID, "is_write", write, "gatewayTopic", isAllowed, "topic", topic)
 	return write || isAllowed
 }
 
-func checkGatewayACL(topic string, write bool) bool {
+func (h *MeshtasticHook) checkGatewayACL(cd *models.ClientDetails, topic string, write bool) bool {
 	if !strings.HasPrefix(topic, "msh/") {
 		return false
 	}
-
-	levels := strings.Split(topic, "/")
-
-	// Validate wildcards
-	hashCount := 0
-	for i, lvl := range levels {
-		if strings.Contains(lvl, "+") && lvl != "+" {
-			// "+" must be its own level
-			return false
-		}
-		if lvl == "#" {
-			hashCount++
-			if i != len(levels)-1 {
-				return false // "#" not at the end
-			}
-		}
-	}
-	if hashCount > 1 {
-		return false
-	}
-
-	// Helper: does topic end with suffix (with + or # treated as wildcard)?
-	matchesSuffix := func(suffix []string) bool {
-		if len(levels) < len(suffix) {
-			return false
-		}
-		start := len(levels) - len(suffix)
-		for i, s := range suffix {
-			if s == "+" || s == "#" {
-				continue // wildcard matches anything
-			}
-			if levels[start+i] != s {
-				return false
-			}
-		}
+	if write {
 		return true
 	}
 
-	suffixes := publishSuffixes
-	if !write {
-		suffixes = subscribeSuffixes
-	}
-
-	for _, suffix := range suffixes {
-		if matchesSuffix(suffix) {
-			return true
+	matches := gatewayPublishRegex.FindStringSubmatch(topic)
+	if len(matches) > 0 {
+		if pubID, err := meshtastic.ParseNodeID(matches[3]); err == nil {
+			if pubID == h.config.MeshSettings.SelfNode.NodeID || cd.IsValidGateway() {
+				return true
+			}
+			h.Log.Info("Not forwarding packet to invalid gateway:", "client", cd.ClientID, "topic", topic)
+			return false
 		}
 	}
+
+	if gatewaySubRegex.MatchString(topic) {
+		return true
+	}
+
 	return false
 }
 
@@ -331,12 +308,21 @@ func (h *MeshtasticHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 
 }
 
+func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
+
+	return pk
+}
+
 func (h *MeshtasticHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCodes []byte) {
 	h.Log.Debug(fmt.Sprintf("subscribed qos=%v", reasonCodes), "client", cl.ID, "filters", pk.Filters)
 }
 
 func (h *MeshtasticHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Debug("unsubscribed", "client", cl.ID, "filters", pk.Filters)
+}
+
+func (h *MeshtasticHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
+	h.Log.Debug("published to client", "client", cl.ID)
 }
 
 func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
@@ -381,10 +367,6 @@ func (h *MeshtasticHook) RewriteTopicIfGateway(cd *models.ClientDetails, topic s
 		topic = gatewayTopicRegex.ReplaceAllString(topic, gatewayReplacement)
 	}
 	return topic
-}
-
-func (h *MeshtasticHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
-	h.Log.Debug("published to client", "client", cl.ID)
 }
 
 func (h *MeshtasticHook) TrySetRootTopic(cd *models.ClientDetails, topic string) {

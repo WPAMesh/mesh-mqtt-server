@@ -31,6 +31,10 @@ func (n NodeID) String() string {
 	}
 }
 
+func (n NodeID) IsReservedID() bool {
+	return n < 4 || n == NodeID(BROADCAST_ID)
+}
+
 // GetNodeColor returns the RGB values used by various user-interfaces
 func (n NodeID) GetNodeColor() (r, g, b uint8) {
 	r = uint8((n & 0xFF0000) >> 16)

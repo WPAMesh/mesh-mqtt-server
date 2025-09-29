@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,7 @@ type NodeInfo struct {
 	LongName     string            `db:"long_name"`
 	ShortName    string            `db:"short_name"`
 	NodeRole     string            `db:"node_role"`
+	HwModel      string            `db:"hw_model"`
 	LastSeen     *time.Time        `db:"last_seen"`
 	VerifiedDate *time.Time        `db:"last_verified"`
 }
@@ -87,17 +89,23 @@ func (c *ClientDetails) IsUsingGatewayTopic() bool {
 	return strings.HasSuffix(c.RootTopic, "/Gateway")
 }
 
-func (c *ClientDetails) IsValidGateway() bool {
-	return c.NodeDetails != nil && c.ProxyType == "" && c.IsVerified() &&
+func (c *ClientDetails) IsValidGateway(gwAllowed bool) bool {
+	return gwAllowed && c.NodeDetails != nil && c.ProxyType == "" && c.IsVerified() &&
 		c.IsUsingGatewayTopic() && c.NodeDetails.NodeRole != "" &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_CLIENT_MUTE.String() &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_ROUTER_CLIENT.String()
+
 }
 
 func (c *ClientDetails) SyncUserID() {
 	if c.NodeDetails != nil {
 		c.NodeDetails.UserID = c.UserID
 	}
+}
+
+func (c *ClientDetails) GetIPAddress() (string, error) {
+	host, _, err := net.SplitHostPort(c.Address)
+	return host, err
 }
 
 func (c *ClientDetails) GetNodeID() *meshtastic.NodeID {
@@ -107,8 +115,11 @@ func (c *ClientDetails) GetNodeID() *meshtastic.NodeID {
 	return nil
 }
 
-func (c *ClientDetails) GetValidationErrors() []string {
+func (c *ClientDetails) GetValidationErrors(gwAllowed bool) []string {
 	errs := []string{}
+	if !gwAllowed {
+		errs = append(errs, "Gateway not allowed by mesh admin")
+	}
 	if c.ProxyType != "" {
 		errs = append(errs, "Node is connected via client proxy")
 	}
@@ -152,4 +163,9 @@ func (c *NodeInfo) IsExpiringSoon() bool {
 		return time.Now().After(expireDate)
 	}
 	return true
+}
+
+func (n *NodeInfo) GetNodeColor() string {
+	r, g, b := n.NodeID.GetNodeColor()
+	return fmt.Sprintf("%d, %d, %d", r, g, b)
 }

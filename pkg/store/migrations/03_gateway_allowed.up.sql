@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD gateway_allowed BOOLEAN NOT NULL DEFAULT FALSE;

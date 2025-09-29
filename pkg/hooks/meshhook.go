@@ -248,8 +248,13 @@ func (h *MeshtasticHook) checkGatewayACL(cd *models.ClientDetails, topic string,
 
 	matches := gatewayPublishRegex.FindStringSubmatch(topic)
 	if len(matches) > 0 {
+		gwAllowed, err := h.config.Storage.Users.IsGatewayAllowed(cd.UserID)
+		if err != nil {
+			h.Log.Error("unable to check if user permitted to use gateway", "client", cd.ClientID)
+			return false
+		}
 		if pubID, err := meshtastic.ParseNodeID(matches[3]); err == nil {
-			if pubID == h.config.MeshSettings.SelfNode.NodeID || cd.IsValidGateway() {
+			if pubID == h.config.MeshSettings.SelfNode.NodeID || cd.IsValidGateway(gwAllowed) {
 				return true
 			}
 			h.Log.Info("Not forwarding packet to invalid gateway:", "client", cd.ClientID, "topic", topic)
@@ -353,7 +358,12 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 		return pk, err
 	}
 	pkx := pk
-	if ok && cd.IsMeshDevice() && !cd.IsValidGateway() {
+	gwAllowed, err := h.config.Storage.Users.IsGatewayAllowed(cd.UserID)
+	if err != nil {
+		h.Log.Error("unable to check if user permitted to use gateway", "client", cl.ID)
+		return pk, err
+	}
+	if ok && cd.IsMeshDevice() && !cd.IsValidGateway(gwAllowed) {
 		pkx.TopicName = h.RewriteTopicIfGateway(cd, pk.TopicName)
 	}
 	pkx.Payload = payload

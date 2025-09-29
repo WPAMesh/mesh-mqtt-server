@@ -3,7 +3,9 @@ package store
 import (
 	"database/sql"
 	"sync"
+	"time"
 
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/jmoiron/sqlx"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 )
@@ -17,17 +19,27 @@ type UserStore interface {
 	SetDisplayName(user *models.User) error
 	AddUser(user *models.User) error
 	IsSuperuser(id int) (bool, error)
+	IsGatewayAllowed(id int) (bool, error)
 }
 
 type postgresUserStore struct {
 	db *sqlx.DB
 	//cfg    *conf.Config
-	suCache     map[int]bool
-	suCacheLock sync.RWMutex
+	suCache      map[int]bool
+	suCacheLock  sync.RWMutex
+	gatewayCache *ttlcache.Cache[int, bool]
 }
 
 func NewUsers(dbconn *sqlx.DB) UserStore {
-	return &postgresUserStore{db: dbconn, suCache: make(map[int]bool)}
+	cache := ttlcache.New[int, bool](
+		ttlcache.WithTTL[int, bool](15 * time.Minute),
+	)
+	go cache.Start()
+	return &postgresUserStore{
+		db:           dbconn,
+		suCache:      make(map[int]bool),
+		gatewayCache: cache,
+	}
 }
 
 func (b *postgresUserStore) GetByID(id int) (*models.User, error) {
@@ -100,6 +112,18 @@ func (b *postgresUserStore) IsSuperuser(id int) (bool, error) {
 		b.suCache[id] = u.IsSuperuser
 		b.suCacheLock.Unlock()
 		return u.IsSuperuser, nil
+	}
+	return false, err
+}
+
+func (b *postgresUserStore) IsGatewayAllowed(id int) (bool, error) {
+	if gwAllowed := b.gatewayCache.Get(id, ttlcache.WithDisableTouchOnHit[int, bool]()); gwAllowed != nil {
+		return gwAllowed.Value(), nil
+	}
+	u, err := b.GetByID(id)
+	if u != nil {
+		b.gatewayCache.Set(id, u.IsGatewayAllowed, 15*time.Minute)
+		return u.IsGatewayAllowed, nil
 	}
 	return false, err
 }

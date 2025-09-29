@@ -21,7 +21,7 @@
         {{ range .ConnectedNodes}}
         <tr>
             <td>{{if .NodeDetails}}{{.NodeDetails.NodeID}}{{end}}</td>
-            <td>{{.GetDisplayName}}</td>
+            <td>{{if .NodeDetails}}{{.GetDisplayName}}{{else}}<i>unknown</i>{{end}}</td>
             <td>{{if .ProxyType}}{{.ProxyType}}{{else}}<i>n/a</i>{{end}}</td>
             <td>{{if .ClientID}}{{.Address}}{{else}}<i>disconnected</i>{{end}}</td>
             <td>{{if .IsVerified}}Yes{{else}}No{{end}}</td>

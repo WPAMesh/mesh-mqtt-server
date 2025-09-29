@@ -32,6 +32,7 @@ type ClientDetails struct {
 	VerifyPacketID uint32
 	VerifyReqTime  *time.Time
 	InvalidPackets int
+	ValidGWChecker func() bool
 }
 
 type NodeInfo struct {
@@ -89,8 +90,12 @@ func (c *ClientDetails) IsUsingGatewayTopic() bool {
 	return strings.HasSuffix(c.RootTopic, "/Gateway")
 }
 
-func (c *ClientDetails) IsValidGateway(gwAllowed bool) bool {
-	return gwAllowed && c.NodeDetails != nil && c.ProxyType == "" && c.IsVerified() &&
+func (c *ClientDetails) IsValidGateway() bool {
+	extValid := true
+	if c.ValidGWChecker != nil {
+		extValid = c.ValidGWChecker()
+	}
+	return extValid && c.NodeDetails != nil && c.ProxyType == "" && c.IsVerified() &&
 		c.IsUsingGatewayTopic() && c.NodeDetails.NodeRole != "" &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_CLIENT_MUTE.String() &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_ROUTER_CLIENT.String()
@@ -115,9 +120,10 @@ func (c *ClientDetails) GetNodeID() *meshtastic.NodeID {
 	return nil
 }
 
-func (c *ClientDetails) GetValidationErrors(gwAllowed bool) []string {
+func (c *ClientDetails) GetValidationErrors() []string {
 	errs := []string{}
-	if !gwAllowed {
+
+	if c.ValidGWChecker != nil && !c.ValidGWChecker() {
 		errs = append(errs, "Gateway not allowed by mesh admin")
 	}
 	if c.ProxyType != "" {

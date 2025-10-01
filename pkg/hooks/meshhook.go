@@ -3,7 +3,6 @@ package hooks
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"sync"

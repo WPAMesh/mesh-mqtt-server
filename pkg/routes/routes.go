@@ -316,9 +316,6 @@ func (wr *WebRouter) getMqttConfig(user *models.User) *MqttConfigData {
 		}
 	}
 
-	// Determine if user needs to set password (empty hash means no password set)
-	hasPassword := user.PasswordHash != ""
-
 	return &MqttConfigData{
 		ServerAddress: wr.config.BaseURL,
 		Username:      user.UserName,
@@ -339,22 +336,22 @@ type SetPasswordResponse struct {
 }
 
 type NodeResponse struct {
-	NodeID           string    `json:"node_id"`
-	ShortName        string    `json:"short_name"`
-	LongName         string    `json:"long_name"`
-	ProxyType        string    `json:"proxy_type"`
-	Address          string    `json:"address"`
-	RootTopic        string    `json:"root_topic"`
-	NodeRole         string    `json:"node_role,omitempty"`
-	HwModel          string    `json:"hw_model,omitempty"`
-	LastSeen         *string   `json:"last_seen,omitempty"`
-	IsDownlink       bool      `json:"is_downlink"`
-	IsValidGateway   bool      `json:"is_valid_gateway"`
-	IsConnected      bool      `json:"is_connected"`
-	IsMeshDevice     bool      `json:"is_mesh_device"`
-	ClientID         string    `json:"client_id"`
-	UserDisplay      string    `json:"user_display,omitempty"`
-	ValidationErrors []string  `json:"validation_errors,omitempty"`
+	NodeID           string   `json:"node_id"`
+	ShortName        string   `json:"short_name"`
+	LongName         string   `json:"long_name"`
+	ProxyType        string   `json:"proxy_type"`
+	Address          string   `json:"address"`
+	RootTopic        string   `json:"root_topic"`
+	NodeRole         string   `json:"node_role,omitempty"`
+	HwModel          string   `json:"hw_model,omitempty"`
+	LastSeen         *string  `json:"last_seen,omitempty"`
+	IsDownlink       bool     `json:"is_downlink"`
+	IsValidGateway   bool     `json:"is_valid_gateway"`
+	IsConnected      bool     `json:"is_connected"`
+	IsMeshDevice     bool     `json:"is_mesh_device"`
+	ClientID         string   `json:"client_id"`
+	UserDisplay      string   `json:"user_display,omitempty"`
+	ValidationErrors []string `json:"validation_errors,omitempty"`
 }
 
 type NodesResponse struct {

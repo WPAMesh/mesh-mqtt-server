@@ -82,6 +82,13 @@ func main() {
 	server := mqtt.New(&mqtt.Options{
 		InlineClient: true, // you must enable inline client to use direct publishing and subscribing.
 		Logger:       logger,
+		Capabilities: mqtt.Capabilities{
+			MaximumSessionExpiryInterval: 3600,  // 1 hour - accommodate mobile devices with intermittent connectivity
+			MaximumMessageExpiryInterval: 3600,  // 1 hour
+			ReceiveMaximum:               1000,  // Max in-flight messages
+			MaximumQoS:                   1,     // QoS 1 max
+			MaximumPacketSize:            2048,  // 2KB - well above the ~256 byte mesh RF limit, accounts for MQTT overhead
+		},
 	})
 
 	//_ = server.AddHook(new(auth.AllowHook), nil)

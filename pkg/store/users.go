@@ -17,6 +17,7 @@ type UserStore interface {
 	GetByUserName(username string) (*models.User, error)
 	GetByDiscordID(id int64) (*models.User, error)
 	SetDisplayName(user *models.User) error
+	SetPassword(userID int, passwordHash, salt string) error
 	AddUser(user *models.User) error
 	IsSuperuser(id int) (bool, error)
 	IsGatewayAllowed(id int) (bool, error)
@@ -80,6 +81,17 @@ func (b *postgresUserStore) SetDisplayName(user *models.User) error {
 	`
 
 	_, err := b.db.NamedExec(stmt, user)
+	return err
+}
+
+func (b *postgresUserStore) SetPassword(userID int, passwordHash, salt string) error {
+	stmt := `
+	UPDATE users
+	SET password_hash = $1, salt = $2
+	WHERE id = $3;
+	`
+
+	_, err := b.db.Exec(stmt, passwordHash, salt, userID)
 	return err
 }
 

@@ -11,6 +11,9 @@
             <nav id="header-nav">
                 <ul class="mg-nav mg-nav--inline" data-toggle="nav">
                     <li class="active"><a href="#home">My Nodes</a></li>
+                    {{if .MqttConfig}}
+                    <li><a href="#" onclick="openOnboarding(); return false;">Setup Guide</a></li>
+                    {{end}}
                     <li><a href="/auth/logout">Logout</a></li>
                 </ul>
             </nav>

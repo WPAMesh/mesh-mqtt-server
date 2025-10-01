@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/kabili207/mesh-mqtt-server/internal/web"
+	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
@@ -69,11 +71,28 @@ type Alert struct {
 	Detail  *string
 }
 
+type MqttConfigData struct {
+	ServerAddress string
+	Username      string
+	Password      string
+	RootTopic     string
+	GatewayTopic  string
+	Channels      []ChannelInfo
+}
+
+type ChannelInfo struct {
+	Name     string
+	PSK      string
+	IsCustom bool
+}
+
 type PageVariables struct {
 	PageTitle      string
 	Alerts         []Alert
 	ConnectedNodes []*models.ClientDetails
 	OtherClients   []*models.ClientDetails
+	MqttConfig     *MqttConfigData
+	ShowOnboarding bool
 }
 
 func (wr *WebRouter) handleRequests(listenAddr string) error {
@@ -85,6 +104,7 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/", wr.homePage)
 	myRouter.HandleFunc("/all-nodes", wr.allNodes)
 	myRouter.HandleFunc("/login", wr.loginPage)
+	myRouter.HandleFunc("/api/set-mqtt-password", wr.setMqttPassword).Methods("POST")
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
 	myRouter.HandleFunc("/auth/discord/callback", wr.discordCallbackHandler)
@@ -185,10 +205,15 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 			slog.Error("error loading my_nodes template", "error", err)
 		}
 
+		mqttConfig := wr.getMqttConfig(user)
+		showOnboarding := user.PasswordHash == "" // Show onboarding if no password set
+
 		err = tmpl.ExecuteTemplate(w, "base", PageVariables{
 			ConnectedNodes: nodes,
 			OtherClients:   otherClients,
 			Alerts:         nil,
+			MqttConfig:     mqttConfig,
+			ShowOnboarding: showOnboarding,
 		})
 		if err != nil {
 			slog.Error("error executing my_nodes template", "error", err)
@@ -263,4 +288,81 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error parsing template", 500)
 		}
 	}
+}
+
+func (wr *WebRouter) getMqttConfig(user *models.User) *MqttConfigData {
+	if user == nil {
+		return nil
+	}
+
+	channels := make([]ChannelInfo, len(wr.config.MeshSettings.Channels))
+	for i, ch := range wr.config.MeshSettings.Channels {
+		channels[i] = ChannelInfo{
+			Name:     ch.Name,
+			PSK:      ch.Key,
+			IsCustom: false,
+		}
+	}
+
+	// Determine if user needs to set password (empty hash means no password set)
+	hasPassword := user.PasswordHash != ""
+
+	return &MqttConfigData{
+		ServerAddress: wr.config.BaseURL,
+		Username:      user.UserName,
+		Password:      "", // Never send password to frontend
+		RootTopic:     wr.config.MeshSettings.MqttRoot,
+		GatewayTopic:  wr.config.MeshSettings.MqttRoot + "/Gateway",
+		Channels:      channels,
+	}
+}
+
+type SetPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+type SetPasswordResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+func (wr *WebRouter) setMqttPassword(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req SetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(SetPasswordResponse{
+			Success: false,
+			Message: "Password cannot be empty",
+		})
+		return
+	}
+
+	// Generate hash and salt
+	hash, salt := auth.GenerateHashAndSalt(req.Password)
+
+	// Save to database
+	err = wr.storage.Users.SetPassword(user.ID, hash, salt)
+	if err != nil {
+		slog.Error("error setting user password", "error", err, "user_id", user.ID)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(SetPasswordResponse{
+		Success: true,
+		Message: "Password set successfully",
+	})
 }

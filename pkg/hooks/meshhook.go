@@ -111,10 +111,6 @@ func (h *MeshtasticHook) Init(config any) error {
 
 	h.knownClients = make(map[string]*models.ClientDetails)
 
-	hash, salt := generateHashAndSalt("9VT#iTb2h&7Cs&RZkUYg")
-	log.Printf("Hash: %s", hash)
-	log.Printf("Salt: %s", salt)
-
 	return nil
 }
 

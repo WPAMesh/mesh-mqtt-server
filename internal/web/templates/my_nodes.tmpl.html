@@ -2,6 +2,173 @@
 
 {{define "content"}}
 
+<!-- Onboarding Modal -->
+{{if .MqttConfig}}
+<div id="onboarding-modal" class="mg-modal {{if .ShowOnboarding}}opened{{end}}">
+    <div class="mg-modal--content onboarding-content">
+        <button class="modal-close" onclick="closeOnboarding()">&times;</button>
+        <h2>Welcome to the Mesh MQTT Server!</h2>
+        <p>Let's get your Meshtastic device configured to connect to our network.</p>
+
+        <!-- Step 1: Set Password -->
+        <section class="onboarding-section" id="password-section">
+            <h3>Step 1: Set Your MQTT Password</h3>
+            <p>Choose a secure password for your MQTT connection:</p>
+            <div class="password-form">
+                <input type="password" id="mqtt-password" placeholder="Enter password" class="mg-input">
+                <input type="password" id="mqtt-password-confirm" placeholder="Confirm password" class="mg-input">
+                <button class="mg-button" onclick="setPassword()">Set Password</button>
+                <div id="password-message" class="message"></div>
+            </div>
+        </section>
+
+        <!-- Step 2: MQTT Credentials -->
+        <section class="onboarding-section" id="credentials-section" style="display: {{if .ShowOnboarding}}none{{else}}block{{end}};">
+            <h3>Step 2: Your MQTT Credentials</h3>
+            <div class="credential-box">
+                <label>Server Address</label>
+                <div class="copy-field">
+                    <code>{{.MqttConfig.ServerAddress}}</code>
+                    <button class="copy-btn" onclick="copyToClipboard('{{.MqttConfig.ServerAddress}}')">Copy</button>
+                </div>
+            </div>
+            <div class="credential-box">
+                <label>Username</label>
+                <div class="copy-field">
+                    <code>{{.MqttConfig.Username}}</code>
+                    <button class="copy-btn" onclick="copyToClipboard('{{.MqttConfig.Username}}')">Copy</button>
+                </div>
+            </div>
+            <div class="credential-box">
+                <label>Password</label>
+                <div class="copy-field">
+                    <code id="user-password">Your chosen password</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: MQTT Settings -->
+        <section class="onboarding-section" id="mqtt-settings-section" style="display: {{if .ShowOnboarding}}none{{else}}block{{end}};">
+            <h3>Step 3: MQTT Module Settings</h3>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <span class="setting-label">Encryption:</span>
+                    <span class="setting-value">Enabled</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">TLS:</span>
+                    <span class="setting-value">Disabled</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">JSON:</span>
+                    <span class="setting-value">Disabled</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Root Topic -->
+        <section class="onboarding-section" id="topic-section" style="display: {{if .ShowOnboarding}}none{{else}}block{{end}};">
+            <h3>Step 4: Root Topic</h3>
+            <p>Choose the appropriate root topic based on your node's role in the mesh:</p>
+
+            <div class="gateway-explainer">
+                <h4>What is a Gateway Node?</h4>
+                <p>Gateway nodes use MQTT to bridge distant parts of the mesh network. They relay messages between regions that can't reach each other via direct radio links.</p>
+
+                <details class="gateway-details">
+                    <summary>Should I use a Gateway topic?</summary>
+                    <div class="gateway-use-cases">
+                        <p><strong>Use Gateway if:</strong></p>
+                        <ul>
+                            <li>Your node is in a fixed location with reliable power and internet</li>
+                            <li>You're positioned to bridge between regions (different counties or cities)</li>
+                            <li>You're seeing very few or no other nodes via RF (you may be the first in your area)</li>
+                            <li>Your node is connected to many other nodes (either directly or within 1 hop)</li>
+                            <li>You've coordinated with mesh administrators about gateway placement</li>
+                        </ul>
+
+                        <p><strong>Use Standard if:</strong></p>
+                        <ul>
+                            <li>Your node is mobile (phone, vehicle, portable device)</li>
+                            <li>You're within RF range of existing mesh nodes</li>
+                            <li>You're participating to improve map coverage and network utilization, not to bridge regions</li>
+                            <li>Your node doesn't have a consistent location or internet connection</li>
+                            <li>You're already seeing nodes from MQTT in your node list (there's already a gateway nearby!)</li>
+                        </ul>
+
+                        <div class="gateway-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Gateway nodes must pass validation checks (downlink verification, proper role, connected to multiple nodes, etc.). If your node fails validation, it will be automatically redirected to the standard topic - no action needed from you!
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="topic-options">
+                <div class="topic-option topic-standard">
+                    <h4><i class="fas fa-globe"></i> Standard Topic (Most Users)</h4>
+                    <div class="copy-field">
+                        <code>{{.MqttConfig.RootTopic}}</code>
+                        <button class="copy-btn" onclick="copyToClipboard('{{.MqttConfig.RootTopic}}')">Copy</button>
+                    </div>
+                    <p class="topic-description">For mobile devices, portable nodes, and nodes within RF range of the existing mesh.</p>
+                </div>
+                <div class="topic-option topic-gateway">
+                    <h4><i class="fas fa-server"></i> Gateway Topic (Strategic Nodes)</h4>
+                    <div class="copy-field">
+                        <code>{{.MqttConfig.GatewayTopic}}</code>
+                        <button class="copy-btn" onclick="copyToClipboard('{{.MqttConfig.GatewayTopic}}')">Copy</button>
+                    </div>
+                    <p class="topic-description">For fixed location nodes strategically placed to bridge between distant mesh regions.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 5: LoRa Settings -->
+        <section class="onboarding-section" id="lora-settings-section" style="display: {{if .ShowOnboarding}}none{{else}}block{{end}};">
+            <h3>Step 5: LoRa Settings</h3>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <span class="setting-label">OK to MQTT:</span>
+                    <span class="setting-value">Enabled</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">Ignore MQTT:</span>
+                    <span class="setting-value">Disabled</span>
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">Hop Limit:</span>
+                    <span class="setting-value">5 (recommended)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 6: Channel Configuration -->
+        <section class="onboarding-section" id="channel-section" style="display: {{if .ShowOnboarding}}none{{else}}block{{end}};">
+            <h3>Step 6: Channel Configuration</h3>
+            {{range .MqttConfig.Channels}}
+            <div class="channel-box">
+                <h4>{{.Name}}</h4>
+                <div class="credential-box">
+                    <label>PSK (Pre-Shared Key)</label>
+                    <div class="copy-field">
+                        <code class="psk-code">{{.PSK}}</code>
+                        <button class="copy-btn" onclick="copyToClipboard('{{.PSK}}')">Copy</button>
+                    </div>
+                </div>
+                <div class="channel-settings">
+                    <span><strong>Uplink:</strong> Enabled</span>
+                    <span><strong>Downlink:</strong> {{if eq .Name "LongFast"}}Enabled (for Gateways){{else}}Enabled{{end}}</span>
+                </div>
+            </div>
+            {{end}}
+        </section>
+
+        <div class="modal-actions">
+            <button class="mg-button mg-button--primary" onclick="closeOnboarding()">Got it!</button>
+        </div>
+    </div>
+</div>
+{{end}}
 
 <div id="tables-example">
     <h3>Connected Nodes</h3>

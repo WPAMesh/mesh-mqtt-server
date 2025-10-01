@@ -79,16 +79,15 @@ func main() {
 		done <- true
 	}()
 
+	caps := mqtt.NewDefaultServerCapabilities()
+	caps.MaximumSessionExpiryInterval = 3600 // 1 hour - accommodate mobile devices with intermittent connectivity
+	caps.MaximumMessageExpiryInterval = 3600 // 1 hour
+	caps.ReceiveMaximum = 1000               // Max in-flight messages
+	caps.MaximumPacketSize = 2048            // 2KB - well above the ~256 byte mesh RF limit, accounts for MQTT overhead
 	server := mqtt.New(&mqtt.Options{
 		InlineClient: true, // you must enable inline client to use direct publishing and subscribing.
 		Logger:       logger,
-		Capabilities: &mqtt.Capabilities{
-			MaximumSessionExpiryInterval: 3600, // 1 hour - accommodate mobile devices with intermittent connectivity
-			MaximumMessageExpiryInterval: 3600, // 1 hour
-			ReceiveMaximum:               1000, // Max in-flight messages
-			MaximumQos:                   1,    // QoS 1 max
-			MaximumPacketSize:            2048, // 2KB - well above the ~256 byte mesh RF limit, accounts for MQTT overhead
-		},
+		Capabilities: caps,
 	})
 
 	//_ = server.AddHook(new(auth.AllowHook), nil)

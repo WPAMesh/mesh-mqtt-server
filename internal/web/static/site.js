@@ -290,7 +290,11 @@ let isLoadingNodes = false;
 let nodeValidationErrors = {}; // Store validation errors by node ID
 
 function getFilters() {
-  const connectedOnly = document.getElementById('filter-connected')?.checked || false;
+  const connectedCheckbox = document.getElementById('filter-connected');
+  // For hidden inputs, check the 'checked' attribute exists, otherwise use .checked
+  const connectedOnly = connectedCheckbox ?
+    (connectedCheckbox.type === 'hidden' ? connectedCheckbox.hasAttribute('checked') : connectedCheckbox.checked) :
+    false;
   const gatewayOnly = document.getElementById('filter-gateway')?.checked || false;
 
   return { connectedOnly, gatewayOnly };
@@ -320,17 +324,35 @@ async function loadNodes(isAdmin = false) {
 
     const data = await response.json();
 
-    renderNodeCards(data.nodes);
+    // Check if we have a table or grid layout
+    const hasTable = document.getElementById('nodes-tbody') !== null;
+    const hasGrid = document.getElementById('node-grid') !== null;
+
+    if (hasTable) {
+      renderNodesTable(data.nodes, isAdmin);
+    } else if (hasGrid) {
+      renderNodeCards(data.nodes);
+    }
+
     renderOtherClientsTable(data.other_clients, isAdmin);
 
   } catch (error) {
     console.error('Error loading nodes:', error);
+
+    // Handle error display for grid or table
     const grid = document.getElementById('node-grid');
+    const tbody = document.getElementById('nodes-tbody');
+
     if (grid) {
       grid.innerHTML = '<div class="error-message">Error loading nodes</div>';
+    } else if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '8' : '7') + '" class="error-message">Error loading nodes</td></tr>';
     }
-    document.getElementById('other-clients-tbody').innerHTML =
-      '<tr><td colspan="' + (isAdmin ? '4' : '3') + '" class="error-message">Error loading clients</td></tr>';
+
+    const otherTbody = document.getElementById('other-clients-tbody');
+    if (otherTbody) {
+      otherTbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '3' : '2') + '" class="error-message">Error loading clients</td></tr>';
+    }
   } finally {
     isLoadingNodes = false;
 
@@ -441,6 +463,48 @@ function renderNodeCards(nodes) {
           <span class="node-info-text">${nodeId}</span>
         </div>
       </div>
+    `;
+  }).join('');
+}
+
+function renderNodesTable(nodes, isAdmin) {
+  const tbody = document.getElementById('nodes-tbody');
+
+  if (!tbody) {
+    console.error('Nodes table body not found');
+    return;
+  }
+
+  if (!nodes || nodes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '8' : '7') + '"><i>No nodes found</i></td></tr>';
+    return;
+  }
+
+  // Store validation errors for later access
+  nodeValidationErrors = {};
+  nodes.forEach(node => {
+    if (node.node_id && node.validation_errors) {
+      nodeValidationErrors[node.node_id] = node.validation_errors;
+    }
+  });
+
+  tbody.innerHTML = nodes.map(node => {
+    const validationClass = node.validation_errors && node.validation_errors.length > 0 ? 'has-errors' : '';
+    const validationTitle = node.validation_errors && node.validation_errors.length > 0
+      ? 'Validation errors: ' + node.validation_errors.join(', ')
+      : '';
+
+    return `
+      <tr class="${validationClass}" title="${validationTitle}">
+        <td>${node.node_id || ''}</td>
+        <td>${node.short_name || ''}</td>
+        <td>${node.long_name || 'unknown'}</td>
+        <td>${node.proxy_type || '<i>none</i>'}</td>
+        <td>${node.is_connected ? node.address : '<i>disconnected</i>'}</td>
+        <td>${node.is_downlink ? 'Yes' : 'No'}</td>
+        <td>${node.is_valid_gateway ? 'Yes' : 'No'}</td>
+        ${isAdmin ? `<td>${node.user_display || ''}</td>` : ''}
+      </tr>
     `;
   }).join('');
 }

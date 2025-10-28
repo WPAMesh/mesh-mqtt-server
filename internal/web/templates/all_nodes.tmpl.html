@@ -6,7 +6,7 @@
     <div class="table-controls">
         <h3>All Nodes</h3>
         <div class="filter-controls">
-            <label class="mg-toggle mg-text-s">Connected Only <input type="checkbox" id="filter-connected" checked> <span class="mg-toggle--icon mg-icon--s"></span></label>
+            <input type="hidden" id="filter-connected" checked>
             <label class="mg-toggle mg-text-s">Valid Gateways Only<input type="checkbox" id="filter-gateway"> <span class="mg-toggle--icon mg-icon--s"></span></label>
             <label class="mg-toggle mg-text-s">Auto-Refresh (15s)<input type="checkbox" id="auto-refresh"> <span class="mg-toggle--icon mg-icon--s"></span></label>
         </div>
@@ -50,8 +50,19 @@
 <script>
     // Initialize node loading on page load
     window.isAdmin = true; // Admin page
-    if (typeof loadNodes === 'function') {
-        loadNodes(window.isAdmin);
+
+    // Ensure DOM is loaded before calling loadNodes
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof loadNodes === 'function') {
+                loadNodes(window.isAdmin);
+            }
+        });
+    } else {
+        // DOM already loaded
+        if (typeof loadNodes === 'function') {
+            loadNodes(window.isAdmin);
+        }
     }
 </script>
 

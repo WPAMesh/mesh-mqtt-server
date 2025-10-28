@@ -88,6 +88,11 @@ html * {
   margin: 1.5rem 0;
 }
 
+/* Ensure all grid items have equal width */
+.node-grid > * {
+  min-width: 0;
+}
+
 .node-grid .loading-message,
 .node-grid .no-nodes-message,
 .node-grid .error-message {
@@ -153,10 +158,13 @@ html * {
 }
 
 .node-name {
+  font-size: 1em;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 /* Node Topic */

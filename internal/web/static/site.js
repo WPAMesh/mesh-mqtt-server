@@ -416,9 +416,9 @@ function renderNodeCards(nodes) {
     // Proxy icon
     let proxyIcon = '';
     if (proxyType === 'Android') {
-      proxyIcon = '<i class="mg-icon android mg-text-green mg-mr-2" title="Android Proxy"></i>';
+      proxyIcon = '<i class="fab fa-android" style="font-size: 1.25em; margin-left: 0.5rem;" title="Android Proxy"></i>';
     } else if (proxyType === 'Apple') {
-      proxyIcon = '<i class="mg-icon apple mg-text-blue mg-mr-2" title="iOS Proxy"></i>';
+      proxyIcon = '<i class="fab fa-apple" style="font-size: 1.25em; margin-left: 0.5rem;" title="iOS Proxy"></i>';
     }
 
     return `
@@ -445,13 +445,13 @@ function renderNodeCards(nodes) {
             <i class="fas ${isDownlink ? 'fa-check-circle' : 'fa-times-circle'}"></i>
             <span>Downlink</span>
           </div>
-          <div class="status-badge status-badge-clickable ${isValidGateway ? 'status-badge-success' : 'status-badge-inactive'}"
+          <div class="status-badge status-badge-clickable ${isValidGateway ? 'status-badge-success' : 'status-badge-error'}"
                data-node-id="${nodeId}"
                data-node-name="${longName}"
                data-is-valid="${isValidGateway}"
                onclick="showValidationErrors(this)"
                title="${!isValidGateway ? 'Click to see validation errors' : ''}">
-            <i class="fas ${isValidGateway ? 'fa-check-circle' : 'fa-circle'}"></i>
+            <i class="fas ${isValidGateway ? 'fa-check-circle' : 'fa-times-circle'}"></i>
             <span>Valid GW</span>
           </div>
         </div>

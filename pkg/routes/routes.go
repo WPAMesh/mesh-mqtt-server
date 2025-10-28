@@ -515,14 +515,18 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 				}
 
 				nodes = append(nodes, NodeResponse{
-					NodeID:       n.NodeID.String(),
-					ShortName:    n.GetSafeShortName(),
-					LongName:     n.GetSafeLongName(),
-					NodeRole:     n.NodeRole,
-					HwModel:      n.HwModel,
-					LastSeen:     lastSeen,
-					IsConnected:  false,
-					IsMeshDevice: true,
+					NodeID:         n.NodeID.String(),
+					ShortName:      n.GetSafeShortName(),
+					LongName:       n.GetSafeLongName(),
+					NodeRole:       n.NodeRole,
+					HwModel:        n.HwModel,
+					LastSeen:       lastSeen,
+					IsConnected:    false,
+					IsMeshDevice:   true,
+					IsValidGateway: false,
+					ValidationErrors: []string{
+						"Node is offline",
+					},
 				})
 			}
 		}

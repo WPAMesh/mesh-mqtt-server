@@ -22,21 +22,21 @@ type MeshMqttServer interface {
 
 type ClientDetails struct {
 	sync.RWMutex
-	MqttUserName            string
-	UserID                  int
-	ClientID                string
-	NodeDetails             *NodeInfo
-	ProxyType               string
-	Address                 string
-	RootTopic               string
-	VerifyPacketID          uint32
-	VerifyReqTime           *time.Time
-	InvalidPackets          int
-	ValidGWChecker          func() bool
+	MqttUserName   string
+	UserID         int
+	ClientID       string
+	NodeDetails    *NodeInfo
+	ProxyType      string
+	Address        string
+	RootTopic      string
+	VerifyPacketID uint32
+	VerifyReqTime  *time.Time
+	InvalidPackets int
+	ValidGWChecker func() bool
 	// Cached permissions with expiry - revalidated after TTL
-	cachedIsSuperuser       bool
-	cachedIsGatewayAllowed  bool
-	permissionsCachedAt     time.Time
+	cachedIsSuperuser      bool
+	cachedIsGatewayAllowed bool
+	permissionsCachedAt    time.Time
 }
 
 type NodeInfo struct {

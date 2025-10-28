@@ -80,6 +80,215 @@ html * {
   display: none;
 }
 
+/* Node Grid Layout */
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+@media only screen and (max-width: 1024px) {
+  .node-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media only screen and (max-width: 640px) {
+  .node-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Node Card Styling */
+.node-card {
+  background-color: var(--node-color-bg, var(--mg-color-quinary));
+  border-color: var(--node-color, var(--mg-color-quaternary));
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.node-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* Node Header */
+.node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.node-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.node-badge {
+  background-color: var(--node-color, var(--mg-color-primary));
+  color: white;
+  padding: 0.4rem 0.875rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.node-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Node Topic */
+.node-topic {
+  color: var(--mg-color-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.node-topic code {
+  
+}
+
+/* Status Badges */
+.node-status-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  flex: 1;
+  justify-content: center;
+  font-size: 0.85em;
+}
+
+.status-badge i {
+
+}
+
+.status-badge-success {
+  background-color: color-mix(in srgb, var(--mg-color-green) 15%, transparent);
+  color: var(--mg-color-green);
+}
+
+.status-badge-error {
+  background-color: color-mix(in srgb, var(--mg-color-red) 15%, transparent);
+  color: var(--mg-color-red);
+}
+
+.status-badge-inactive {
+  background-color: var(--mg-color-quinary);
+  color: var(--mg-color-quaternary);
+}
+
+.status-badge-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-badge-clickable:hover {
+  opacity: 0.8;
+  transform: scale(1.02);
+}
+
+/* Node Info Row */
+.node-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--mg-color-quinary);
+  color: var(--mg-color-tertiary);
+  font-size: 0.75em;
+}
+
+.node-info-text {
+  flex: 1;
+  text-align: center;
+}
+
+.node-info-text:first-child {
+  text-align: left;
+}
+
+.node-info-text:last-child {
+  text-align: right;
+}
+
+/* Validation Errors Modal */
+.validation-modal-content {
+  max-width: 600px;
+  padding: 2rem;
+}
+
+.validation-modal-content h3 {
+  color: var(--mg-color-primary);
+  margin-bottom: 1.5rem;
+}
+
+.validation-errors-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.validation-errors-list li {
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: color-mix(in srgb, var(--mg-color-red) 10%, transparent);
+  border-left: 3px solid var(--mg-color-red);
+  border-radius: 0.25rem;
+  color: var(--mg-color-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.validation-errors-list li i {
+  color: var(--mg-color-red);
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.validation-success {
+  padding: 1rem;
+  background: color-mix(in srgb, var(--mg-color-green) 10%, transparent);
+  border-left: 3px solid var(--mg-color-green);
+  border-radius: 0.25rem;
+  color: var(--mg-color-green);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.validation-success i {
+  font-size: 1.25rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mg-color-quinary);
+}
+
+
 @media only screen and (max-width:420px) {
 
   .burger {

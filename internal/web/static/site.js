@@ -198,6 +198,49 @@ function copySelectedTopic() {
   }
 }
 
+/**
+ * Validation errors modal functions
+ */
+function showValidationErrors(element) {
+  const nodeId = element.getAttribute('data-node-id');
+  const nodeName = element.getAttribute('data-node-name');
+  const isValid = element.getAttribute('data-is-valid') === 'true';
+
+  // Get validation errors from stored data
+  const errors = nodeValidationErrors[nodeId] || [];
+
+  const modal = document.getElementById('validation-modal');
+  const title = document.getElementById('validation-modal-title');
+  const body = document.getElementById('validation-modal-body');
+
+  if (!modal || !title || !body) {
+    console.error('Validation modal elements not found');
+    return;
+  }
+
+  // Update modal title
+  title.textContent = `Gateway Validation - ${nodeName || nodeId}`;
+
+  // Populate errors
+  if (isValid || errors.length === 0) {
+    body.innerHTML = '<p class="validation-success"><i class="fas fa-check-circle"></i> No validation errors - this node is a valid gateway!</p>';
+  } else {
+    body.innerHTML = '<ul class="validation-errors-list">' +
+      errors.map(error => `<li><i class="fas fa-exclamation-circle"></i> ${error}</li>`).join('') +
+      '</ul>';
+  }
+
+  // Show modal
+  modal.classList.add('opened');
+}
+
+function closeValidationModal() {
+  const modal = document.getElementById('validation-modal');
+  if (modal) {
+    modal.classList.remove('opened');
+  }
+}
+
 async function setPassword() {
   const password = document.getElementById('mqtt-password').value;
   const messageDiv = document.getElementById('password-message');
@@ -244,6 +287,7 @@ async function setPassword() {
 
 let autoRefreshTimeout = null;
 let isLoadingNodes = false;
+let nodeValidationErrors = {}; // Store validation errors by node ID
 
 function getFilters() {
   const connectedOnly = document.getElementById('filter-connected')?.checked || false;
@@ -317,6 +361,14 @@ function renderNodesTable(nodes, isAdmin) {
     tbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '8' : '7') + '"><i>No nodes found</i></td></tr>';
     return;
   }
+
+  // Store validation errors for later access
+  nodeValidationErrors = {};
+  nodes.forEach(node => {
+    if (node.node_id && node.validation_errors) {
+      nodeValidationErrors[node.node_id] = node.validation_errors;
+    }
+  });
 
   tbody.innerHTML = nodes.map(node => {
     const validationClass = node.validation_errors && node.validation_errors.length > 0 ? 'has-errors' : '';

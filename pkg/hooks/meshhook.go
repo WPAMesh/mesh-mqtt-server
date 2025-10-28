@@ -109,7 +109,6 @@ func (h *MeshtasticHook) Init(config any) error {
 	}
 
 	h.knownClients = make(map[string]*models.ClientDetails)
-
 	return nil
 }
 

@@ -36,7 +36,13 @@ func check(e error) {
 }
 
 func init() {
-	logger = slog.New(slogcolor.NewHandler(os.Stdout, slogcolor.DefaultOptions))
+	logLevel := slog.LevelInfo
+	if os.Getenv("DEBUG") != "" {
+		logLevel = slog.LevelDebug
+	}
+	opts := slogcolor.DefaultOptions
+	opts.Level = logLevel
+	logger = slog.New(slogcolor.NewHandler(os.Stdout, opts))
 	slog.SetDefault(logger)
 
 	configPath := flag.String("c", "config.yml", "The path to the config file")
@@ -89,6 +95,7 @@ func main() {
 	caps.MaximumMessageExpiryInterval = 3600 // 1 hour
 	caps.ReceiveMaximum = 1000               // Max in-flight messages
 	caps.MaximumPacketSize = 2048            // 2KB - well above the ~256 byte mesh RF limit, accounts for MQTT overhead
+	caps.MaximumClientWritesPending = 1024   // Pending outbound messages
 	server := mqtt.New(&mqtt.Options{
 		InlineClient: true, // you must enable inline client to use direct publishing and subscribing.
 		Logger:       logger,

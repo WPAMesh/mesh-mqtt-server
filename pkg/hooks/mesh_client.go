@@ -164,8 +164,15 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 	time.Sleep(200 * time.Millisecond)
 
 	topic := fmt.Sprintf("%s/2/e/%s/%s", rootTopic, channel, c.config.MeshSettings.SelfNode.NodeID.String())
-	err = c.config.Server.Publish(topic, rawEnv, false, 0)
 
-	return packetId, err
+	// Publish asynchronously to avoid potential deadlocks from nested hook calls
+	go func(t string, payload []byte) {
+		err := c.config.Server.Publish(t, payload, false, 0)
+		if err != nil {
+			c.Log.Error("failed to publish message", "error", err, "topic", t)
+		}
+	}(topic, rawEnv)
+
+	return packetId, nil
 
 }

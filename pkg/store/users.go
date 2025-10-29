@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -118,6 +119,7 @@ func (b *postgresUserStore) IsSuperuser(id int) (bool, error) {
 		return isSU, nil
 	}
 	b.suCacheLock.RUnlock()
+	slog.Debug("IsSuperuser cache miss, querying database", "user_id", id)
 	u, err := b.GetByID(id)
 	if u != nil {
 		b.suCacheLock.Lock()
@@ -132,6 +134,7 @@ func (b *postgresUserStore) IsGatewayAllowed(id int) (bool, error) {
 	if gwAllowed := b.gatewayCache.Get(id, ttlcache.WithDisableTouchOnHit[int, bool]()); gwAllowed != nil {
 		return gwAllowed.Value(), nil
 	}
+	slog.Debug("IsGatewayAllowed cache miss, querying database", "user_id", id)
 	u, err := b.GetByID(id)
 	if u != nil {
 		b.gatewayCache.Set(id, u.IsGatewayAllowed, 15*time.Minute)

@@ -90,6 +90,8 @@ func (h *MeshtasticHook) Provides(b byte) bool {
 		mqtt.OnUnsubscribed,
 		mqtt.OnPublished,
 		mqtt.OnPublish,
+		mqtt.OnPacketRead,
+		mqtt.OnPacketSent,
 	}, []byte{b})
 }
 
@@ -113,27 +115,25 @@ func (h *MeshtasticHook) Init(config any) error {
 }
 
 func (h *MeshtasticHook) GetAllClients() []*models.ClientDetails {
-	userClients := []*models.ClientDetails{}
 	h.clientLock.RLock()
-	defer h.clientLock.RUnlock()
-
+	userClients := make([]*models.ClientDetails, 0, len(h.knownClients))
 	for _, c := range h.knownClients {
 		userClients = append(userClients, c)
 	}
+	h.clientLock.RUnlock()
 
 	return userClients
 }
 
 func (h *MeshtasticHook) GetUserClients(mqttUser string) []*models.ClientDetails {
-	userClients := []*models.ClientDetails{}
 	h.clientLock.RLock()
-	defer h.clientLock.RUnlock()
-
+	userClients := make([]*models.ClientDetails, 0, len(h.knownClients))
 	for _, c := range h.knownClients {
 		if c.MqttUserName == mqttUser {
 			userClients = append(userClients, c)
 		}
 	}
+	h.clientLock.RUnlock()
 
 	return userClients
 }
@@ -213,8 +213,8 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 
 	h.clientLock.RLock()
 	cd, ok := h.knownClients[cl.ID]
-	h.clientLock.RUnlock()
 	if !ok {
+		h.clientLock.RUnlock()
 		h.Log.Warn("unknown client in ACL check",
 			"client", cl.ID,
 			"username", string(cl.Properties.Username),
@@ -224,6 +224,8 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 
 	// Try to use cached permissions first
 	isSU, _, valid := cd.GetCachedPermissions()
+	h.clientLock.RUnlock()
+
 	if !valid {
 		// Cache expired, refresh from DB and update cache
 		var err error
@@ -242,6 +244,10 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 		cd.SetCachedPermissions(isSU, isGW)
 	}
 
+	// Re-acquire lock only for the checks that need to access knownClients
+	h.clientLock.RLock()
+	defer h.clientLock.RUnlock()
+
 	if sysFilter.FilterMatches(topic) {
 		if !isSU {
 			h.Log.Warn("ACL denied: non-superuser accessing $SYS topic",
@@ -254,14 +260,26 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 
 	if !cd.IsMeshDevice() {
 		// Non-mesh devices are only allowed to read, unless they are superuser
-		allowed := isSU || !write
-		if !allowed {
-			h.Log.Warn("ACL denied: non-mesh device attempting write",
-				"client", cl.ID,
-				"user", cd.MqttUserName,
-				"topic", topic)
+		if write {
+			if !isSU {
+				h.Log.Warn("ACL denied: non-mesh device attempting write",
+					"client", cl.ID,
+					"user", cd.MqttUserName,
+					"topic", topic)
+			}
+			return isSU
 		}
-		return allowed
+
+		// For reads on gateway topics, block if the publisher is an unvalidated gateway
+		// This prevents mapping software (including superusers) from receiving duplicate messages
+		if h.shouldBlockUnvalidatedGatewayMessageUnsafe(topic) {
+			h.Log.Debug("Blocking non-mesh device from unvalidated gateway message",
+				"reader", cl.ID, "is_superuser", isSU, "topic", topic)
+			return false
+		}
+
+		// Allow reads for all other topics
+		return true
 	}
 
 	if topic == "will" || topic == "/will" {
@@ -291,6 +309,47 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 	return result
 }
 
+// getClientByNodeIDUnsafe looks up a client by node ID without locking
+// Caller MUST hold clientLock (RLock or Lock)
+func (h *MeshtasticHook) getClientByNodeIDUnsafe(nodeID meshtastic.NodeID) *models.ClientDetails {
+	for _, client := range h.knownClients {
+		if client.NodeDetails != nil && client.NodeDetails.NodeID == nodeID {
+			return client
+		}
+	}
+	return nil
+}
+
+func (h *MeshtasticHook) isPublisherValidGatewayUnsafe(pubID meshtastic.NodeID) bool {
+	client := h.getClientByNodeIDUnsafe(pubID)
+	return client != nil && client.IsValidGateway()
+}
+
+func (h *MeshtasticHook) shouldBlockUnvalidatedGatewayMessageUnsafe(topic string) bool {
+	// Check if this is a concrete gateway topic (not a subscription pattern)
+	if !gatewayPublishRegex.MatchString(topic) {
+		return false
+	}
+
+	matches := gatewayPublishRegex.FindStringSubmatch(topic)
+	if len(matches) == 0 {
+		return false
+	}
+
+	pubID, err := meshtastic.ParseNodeID(matches[3])
+	if err != nil {
+		return false
+	}
+
+	// Check if the publisher is an unvalidated gateway
+	publisherClient := h.getClientByNodeIDUnsafe(pubID)
+	if publisherClient != nil && publisherClient.IsMeshDevice() && !publisherClient.IsValidGateway() {
+		return true
+	}
+
+	return false
+}
+
 func (h *MeshtasticHook) checkGatewayACL(cd *models.ClientDetails, topic string, write bool) bool {
 	if !strings.HasPrefix(topic, "msh/") {
 		return false
@@ -299,22 +358,58 @@ func (h *MeshtasticHook) checkGatewayACL(cd *models.ClientDetails, topic string,
 		return true
 	}
 
-	matches := gatewayPublishRegex.FindStringSubmatch(topic)
-	if len(matches) > 0 {
-		if pubID, err := meshtastic.ParseNodeID(matches[3]); err == nil {
-			if pubID == h.config.MeshSettings.SelfNode.NodeID || cd.IsValidGateway() {
-				return true
-			}
-			h.Log.Debug("Not forwarding packet to invalid gateway:", "client", cd.ClientID, "topic", topic)
-			return false
-		}
-	}
-
+	// For reads, check if this is a gateway topic
 	if gatewaySubRegex.MatchString(topic) {
+		// Gateway topic - check if this is a concrete publish topic that needs strict validation
+		matches := gatewayPublishRegex.FindStringSubmatch(topic)
+		if len(matches) > 0 {
+			// Concrete gateway topic - only allow if publisher is self OR reader is valid gateway
+			if pubID, err := meshtastic.ParseNodeID(matches[3]); err == nil {
+				// Always allow nodes to receive their own messages (required for firmware ACK logic)
+				if cd.NodeDetails != nil && cd.NodeDetails.NodeID == pubID {
+					h.Log.Debug("Allowing self-message", "client", cd.ClientID, "node_id", cd.NodeDetails.NodeID, "publisher", pubID, "topic", topic)
+					return true
+				}
+				// For validated gateway readers, only allow messages from:
+				// 1. The server itself
+				// 2. Other validated gateways
+				if cd.IsValidGateway() {
+					isServerNode := pubID == h.config.MeshSettings.SelfNode.NodeID
+					isValidGatewayPub := h.isPublisherValidGatewayUnsafe(pubID)
+					if isServerNode || isValidGatewayPub {
+						return true
+					}
+					h.Log.Debug("Blocking unvalidated gateway message to validated gateway",
+						"reader", cd.ClientID, "publisher", pubID, "topic", topic)
+					return false
+				}
+				// Non-gateway readers don't get gateway topic messages
+				h.Log.Debug("Not forwarding packet to invalid gateway", "client", cd.ClientID, "topic", topic, "publisher", pubID, "has_node_details", cd.NodeDetails != nil)
+				return false
+			}
+		}
+		// Subscription patterns or topics that couldn't be parsed are allowed
 		return true
 	}
 
-	return false
+	// Non-gateway mesh topics are write-only (for mapping)
+	// EXCEPT: allow nodes to receive their own messages even if redirected to non-gateway topics
+	// This is needed for firmware ACK logic when gateways aren't validated yet
+	if cd.NodeDetails != nil {
+		matches := channelRegex.FindStringSubmatch(topic)
+		if len(matches) > 0 {
+			if pubID, err := meshtastic.ParseNodeID(matches[3]); err == nil {
+				if cd.NodeDetails.NodeID == pubID {
+					h.Log.Debug("Allowing self-message on non-gateway topic", "client", cd.ClientID, "node_id", cd.NodeDetails.NodeID, "publisher", pubID, "topic", topic)
+					return true
+				}
+			}
+		}
+	}
+
+	// Allow subscription patterns (to keep clients happy) but deny concrete topic delivery
+	hasWildcard := strings.Contains(topic, "+") || strings.Contains(topic, "#")
+	return hasWildcard
 }
 
 // subscribeCallback handles messages for subscribed topics
@@ -323,7 +418,16 @@ func (h *MeshtasticHook) subscribeCallback(cl *mqtt.Client, sub packets.Subscrip
 }
 
 func (h *MeshtasticHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
-	h.Log.Debug("client connected", "client", cl.ID)
+	h.Log.Debug("client connected", "client", cl.ID, "keepalive", pk.Connect.Keepalive, "clean_start", pk.Connect.Clean)
+
+	// Override very short keepalive intervals (< 60 seconds) to prevent frequent reconnections
+	// Meshtastic firmware uses 15 seconds which is too aggressive for mesh network conditions
+	if pk.Connect.Keepalive > 0 && pk.Connect.Keepalive < 60 {
+		originalKeepalive := pk.Connect.Keepalive
+		cl.State.Keepalive = 60 // Set to 60 seconds minimum
+		cl.State.ServerKeepalive = true
+		h.Log.Info("overriding short keepalive", "client", cl.ID, "original", originalKeepalive, "override", 60)
+	}
 
 	return nil
 }
@@ -362,11 +466,41 @@ func (h *MeshtasticHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 }
 
 func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
+	// Try to set root topic from gateway subscription patterns
+	h.clientLock.RLock()
+	cd, ok := h.knownClients[cl.ID]
+	h.clientLock.RUnlock()
+
+	if ok && cd.IsMeshDevice() && cd.RootTopic == "" {
+		// Check if subscribing to a gateway topic pattern and extract root topic
+		for _, filter := range pk.Filters {
+			matches := gatewaySubRegex.FindStringSubmatch(filter.Filter)
+			if len(matches) > 0 {
+				cd.RootTopic = matches[1] + matches[2] // e.g., "msh/US/Gateway"
+				h.Log.Debug("set root topic from subscription", "client", cl.ID, "root_topic", cd.RootTopic)
+				// Trigger verification now that we have the root topic
+				go h.TryVerifyNode(cl.ID, false)
+				break
+			}
+		}
+	}
 
 	return pk
 }
 
 func (h *MeshtasticHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCodes []byte) {
+	// Log each subscription with its reason code
+	for i, filter := range pk.Filters {
+		var reasonCode byte
+		if i < len(reasonCodes) {
+			reasonCode = reasonCodes[i]
+		}
+		status := "granted"
+		if reasonCode >= 0x80 {
+			status = "FAILED"
+		}
+		h.Log.Debug("subscription result", "client", cl.ID, "topic", filter.Filter, "requested_qos", filter.Qos, "granted_qos", reasonCode, "status", status)
+	}
 	h.Log.Debug(fmt.Sprintf("subscribed qos=%v", reasonCodes), "client", cl.ID, "filters", pk.Filters)
 }
 
@@ -376,6 +510,31 @@ func (h *MeshtasticHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
 
 func (h *MeshtasticHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Debug("published to client", "client", cl.ID)
+
+	// If this was a gateway topic from an unvalidated gateway, also publish to the non-gateway topic for mapping
+	if strings.HasPrefix(pk.TopicName, "msh/") {
+		h.clientLock.RLock()
+		cd, ok := h.knownClients[cl.ID]
+		h.clientLock.RUnlock()
+
+		if ok && cd.IsMeshDevice() && !cd.IsValidGateway() {
+			matches := gatewayTopicRegex.FindStringSubmatch(pk.TopicName)
+			if len(matches) > 0 {
+				redirectedTopic := gatewayTopicRegex.ReplaceAllString(pk.TopicName, gatewayReplacement)
+				h.Log.Debug("publishing to redirected topic for mapping", "client", cl.ID, "original", pk.TopicName, "redirected", redirectedTopic)
+
+				// Publish to the redirected topic via the inline client asynchronously
+				// This ensures mapping works while the original gateway topic message is delivered to subscribers
+				// We use a goroutine to avoid deadlock from nested publish operations
+				go func(topic string, payload []byte, retain bool, qos byte) {
+					err := h.config.Server.Publish(topic, payload, retain, qos)
+					if err != nil {
+						h.Log.Error("failed to publish to redirected topic", "error", err, "topic", topic)
+					}
+				}(redirectedTopic, pk.Payload, pk.FixedHeader.Retain, pk.FixedHeader.Qos)
+			}
+		}
+	}
 }
 
 func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
@@ -406,9 +565,6 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 		return pk, err
 	}
 	pkx := pk
-	if ok && cd.IsMeshDevice() && !cd.IsValidGateway() {
-		pkx.TopicName = h.RewriteTopicIfGateway(cd, pk.TopicName)
-	}
 	pkx.Payload = payload
 	return pkx, nil
 }
@@ -473,5 +629,20 @@ func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 	if err == nil {
 		h.config.Server.Log.Info("verification packet sent to node", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic_root", client.RootTopic)
 		client.SetVerificationPending(pid)
+	}
+}
+
+func (h *MeshtasticHook) OnPacketRead(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
+	// Log PINGREQ packets to debug keepalive issues
+	if pk.FixedHeader.Type == packets.Pingreq {
+		h.Log.Debug("received ping request", "client", cl.ID)
+	}
+	return pk, nil
+}
+
+func (h *MeshtasticHook) OnPacketSent(cl *mqtt.Client, pk packets.Packet, b []byte) {
+	// Log PINGRESP packets to debug keepalive issues
+	if pk.FixedHeader.Type == packets.Pingresp {
+		h.Log.Debug("sent ping response", "client", cl.ID)
 	}
 }

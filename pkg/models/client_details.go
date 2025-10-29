@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -141,7 +142,16 @@ func (c *ClientDetails) GetNodeID() *meshtastic.NodeID {
 func (c *ClientDetails) GetValidationErrors() []string {
 	errs := []string{}
 
-	if c.ValidGWChecker != nil && !c.ValidGWChecker() {
+	// Use cached permissions to avoid database queries during web API calls
+	_, isGatewayAllowed, permValid := c.GetCachedPermissions()
+	if !permValid {
+		// Cache expired or not set - fall back to ValidGWChecker which will query DB
+		slog.Warn("GetValidationErrors: permission cache invalid, falling back to DB query",
+			"client", c.ClientID, "user_id", c.UserID)
+		if c.ValidGWChecker != nil && !c.ValidGWChecker() {
+			errs = append(errs, "Gateway not allowed by mesh admin")
+		}
+	} else if !isGatewayAllowed {
 		errs = append(errs, "Gateway not allowed by mesh admin")
 	}
 	if c.ProxyType != "" {

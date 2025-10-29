@@ -118,14 +118,13 @@
                             <div class="topic-radio-header">
                                 <i class="fas fa-mobile-alt"></i>
                                 <h4>Standard Node</h4>
-                                <span class="topic-badge">Recommended</span>
                             </div>
                             <p class="topic-radio-description">For mobile devices and nodes within RF range of the mesh</p>
                             <ul class="topic-radio-details">
                                 <li>Mobile devices (phone, vehicle, portable)</li>
                                 <li>Within RF range of existing mesh nodes</li>
-                                <li>No consistent location or internet connection</li>
                                 <li>Already seeing nodes from MQTT</li>
+                                <li>No consistent location or internet connection</li>
                             </ul>
                         </div>
                     </label>
@@ -136,14 +135,13 @@
                             <div class="topic-radio-header">
                                 <i class="fas fa-tower-broadcast"></i>
                                 <h4>Gateway Node</h4>
-                                <span class="topic-badge topic-badge-warning">Advanced</span>
                             </div>
-                            <p class="topic-radio-description">For fixed location nodes bridging distant mesh regions</p>
+                            <p class="topic-radio-description">For fixed location nodes bridging distant or isolated mesh regions</p>
                             <ul class="topic-radio-details">
                                 <li>Fixed location with reliable power &amp; internet</li>
                                 <li>Positioned to bridge between regions</li>
-                                <li>Few or no other nodes via RF in your area</li>
                                 <li>Connected to many nodes (directly or 1 hop)</li>
+                                <li>Alternatively, very few other nodes via RF in your area</li>
                             </ul>
                             <div class="gateway-warning-compact">
                                 <i class="fas fa-exclamation-triangle"></i> Gateway nodes must pass validation checks. Failed nodes are auto-redirected to standard topic.
@@ -228,7 +226,7 @@
 
 <div id="nodes-section">
     <div class="table-controls">
-        <h3>Connected Nodes</h3>
+        <h3>Nodes</h3>
         <div class="filter-controls">
             <label class="mg-toggle mg-text-s">Connected Only <input type="checkbox" id="filter-connected" checked> <span class="mg-toggle--icon mg-icon--s"></span></label>
             <label class="mg-toggle mg-text-s">Valid Gateways Only<input type="checkbox" id="filter-gateway"> <span class="mg-toggle--icon mg-icon--s"></span></label>

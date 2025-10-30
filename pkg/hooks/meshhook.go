@@ -90,8 +90,6 @@ func (h *MeshtasticHook) Provides(b byte) bool {
 		mqtt.OnUnsubscribed,
 		mqtt.OnPublished,
 		mqtt.OnPublish,
-		mqtt.OnPacketRead,
-		mqtt.OnPacketSent,
 	}, []byte{b})
 }
 
@@ -629,20 +627,5 @@ func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 	if err == nil {
 		h.config.Server.Log.Info("verification packet sent to node", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic_root", client.RootTopic)
 		client.SetVerificationPending(pid)
-	}
-}
-
-func (h *MeshtasticHook) OnPacketRead(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
-	// Log PINGREQ packets to debug keepalive issues
-	if pk.FixedHeader.Type == packets.Pingreq {
-		h.Log.Debug("received ping request", "client", cl.ID)
-	}
-	return pk, nil
-}
-
-func (h *MeshtasticHook) OnPacketSent(cl *mqtt.Client, pk packets.Packet, b []byte) {
-	// Log PINGRESP packets to debug keepalive issues
-	if pk.FixedHeader.Type == packets.Pingresp {
-		h.Log.Debug("sent ping response", "client", cl.ID)
 	}
 }

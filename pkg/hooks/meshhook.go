@@ -368,20 +368,24 @@ func (h *MeshtasticHook) checkGatewayACL(cd *models.ClientDetails, topic string,
 					h.Log.Debug("Allowing self-message", "client", cd.ClientID, "node_id", cd.NodeDetails.NodeID, "publisher", pubID, "topic", topic)
 					return true
 				}
-				// For validated gateway readers, only allow messages from:
-				// 1. The server itself
-				// 2. Other validated gateways
+
+				// Always allow messages from the server (including verification packets)
+				if pubID == h.config.MeshSettings.SelfNode.NodeID {
+					h.Log.Debug("Allowing server message", "client", cd.ClientID, "publisher", pubID, "topic", topic)
+					return true
+				}
+
+				// For validated gateway readers, also allow messages from other validated gateways
 				if cd.IsValidGateway() {
-					isServerNode := pubID == h.config.MeshSettings.SelfNode.NodeID
 					isValidGatewayPub := h.isPublisherValidGatewayUnsafe(pubID)
-					if isServerNode || isValidGatewayPub {
+					if isValidGatewayPub {
 						return true
 					}
 					h.Log.Debug("Blocking unvalidated gateway message to validated gateway",
 						"reader", cd.ClientID, "publisher", pubID, "topic", topic)
 					return false
 				}
-				// Non-gateway readers don't get gateway topic messages
+				// Non-gateway readers don't get gateway topic messages from other nodes
 				h.Log.Debug("Not forwarding packet to invalid gateway", "client", cd.ClientID, "topic", topic, "publisher", pubID, "has_node_details", cd.NodeDetails != nil)
 				return false
 			}

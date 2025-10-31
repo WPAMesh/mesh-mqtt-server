@@ -10,9 +10,13 @@
             </div>
             <nav id="header-nav">
                 <ul class="mg-nav mg-nav--inline" data-toggle="nav">
-                    <li class="active"><a href="#home">My Nodes</a></li>
+                    <li class="active"><a href="/">My Nodes</a></li>
                     {{if .MqttConfig}}
                     <li><a href="#" onclick="openOnboarding(2); return false;">Setup Guide</a></li>
+                    {{end}}
+                    {{if .IsSuperuser}}
+                    <li><a href="/all-nodes">All Nodes</a></li>
+                    <li><a href="/users">Users</a></li>
                     {{end}}
                     <li><a href="/auth/logout">Logout</a></li>
                 </ul>

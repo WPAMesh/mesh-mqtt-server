@@ -17,9 +17,12 @@ type UserStore interface {
 	GetByID(id int) (*models.User, error)
 	GetByUserName(username string) (*models.User, error)
 	GetByDiscordID(id int64) (*models.User, error)
+	GetAll() ([]*models.User, error)
 	SetDisplayName(user *models.User) error
 	SetPassword(userID int, passwordHash, salt string) error
+	UpdateUser(user *models.User) error
 	AddUser(user *models.User) error
+	DeleteUser(userID int) error
 	IsSuperuser(id int) (bool, error)
 	IsGatewayAllowed(id int) (bool, error)
 }
@@ -141,4 +144,49 @@ func (b *postgresUserStore) IsGatewayAllowed(id int) (bool, error) {
 		return u.IsGatewayAllowed, nil
 	}
 	return false, err
+}
+
+func (b *postgresUserStore) GetAll() ([]*models.User, error) {
+	stmt := selectUsers + " ORDER BY u.mqtt_user;"
+	var users []*models.User
+	err := b.db.Select(&users, stmt)
+	if err == sql.ErrNoRows {
+		return []*models.User{}, nil
+	}
+	return users, err
+}
+
+func (b *postgresUserStore) UpdateUser(user *models.User) error {
+	stmt := `
+	UPDATE users
+	SET display_name = :display_name,
+	    mqtt_user = :mqtt_user,
+	    is_superuser = :is_superuser,
+	    gateway_allowed = :gateway_allowed
+	WHERE id = :id;
+	`
+
+	_, err := b.db.NamedExec(stmt, user)
+	if err == nil {
+		// Invalidate caches for this user
+		b.suCacheLock.Lock()
+		delete(b.suCache, user.ID)
+		b.suCacheLock.Unlock()
+		b.gatewayCache.Delete(user.ID)
+	}
+	return err
+}
+
+func (b *postgresUserStore) DeleteUser(userID int) error {
+	stmt := `DELETE FROM users WHERE id = $1;`
+
+	_, err := b.db.Exec(stmt, userID)
+	if err == nil {
+		// Invalidate caches for this user
+		b.suCacheLock.Lock()
+		delete(b.suCache, userID)
+		b.suCacheLock.Unlock()
+		b.gatewayCache.Delete(userID)
+	}
+	return err
 }

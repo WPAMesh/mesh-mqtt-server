@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -93,6 +94,7 @@ type PageVariables struct {
 	OtherClients   []*models.ClientDetails
 	MqttConfig     *MqttConfigData
 	ShowOnboarding bool
+	IsSuperuser    bool
 }
 
 func (wr *WebRouter) handleRequests(listenAddr string) error {
@@ -103,9 +105,13 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 
 	myRouter.HandleFunc("/", wr.homePage)
 	myRouter.HandleFunc("/all-nodes", wr.allNodes)
+	myRouter.HandleFunc("/users", wr.usersPage)
 	myRouter.HandleFunc("/login", wr.loginPage)
 	myRouter.HandleFunc("/api/set-mqtt-password", wr.setMqttPassword).Methods("POST")
 	myRouter.HandleFunc("/api/nodes", wr.getNodes).Methods("GET")
+	myRouter.HandleFunc("/api/users", wr.getUsers).Methods("GET")
+	myRouter.HandleFunc("/api/users/{id}", wr.updateUser).Methods("PUT")
+	myRouter.HandleFunc("/api/users/{id}", wr.deleteUser).Methods("DELETE")
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
 	myRouter.HandleFunc("/auth/discord/callback", wr.discordCallbackHandler)
@@ -215,6 +221,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 			Alerts:         nil,
 			MqttConfig:     mqttConfig,
 			ShowOnboarding: showOnboarding,
+			IsSuperuser:    user.IsSuperuser,
 		})
 		if err != nil {
 			slog.Error("error executing my_nodes template", "error", err)
@@ -283,6 +290,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 			ConnectedNodes: nodes,
 			OtherClients:   otherClients,
 			Alerts:         nil,
+			IsSuperuser:    true,
 		})
 		if err != nil {
 			slog.Error("error executing all_nodes template", "error", err)
@@ -564,5 +572,196 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(NodesResponse{
 		Nodes:        nodes,
 		OtherClients: otherClients,
+	})
+}
+
+func (wr *WebRouter) usersPage(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	tmpl, err := web.GetHTMLTemplate("users")
+	if err != nil {
+		slog.Error("error loading users template", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.ExecuteTemplate(w, "base", PageVariables{
+		PageTitle:   "User Management",
+		IsSuperuser: true,
+	})
+	if err != nil {
+		slog.Error("error executing users template", "error", err)
+		http.Error(w, "Error parsing template", http.StatusInternalServerError)
+	}
+}
+
+type UserResponse struct {
+	ID               int     `json:"id"`
+	DisplayName      *string `json:"display_name"`
+	DiscordID        *int64  `json:"discord_id"`
+	UserName         string  `json:"username"`
+	IsSuperuser      bool    `json:"is_superuser"`
+	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
+	Created          string  `json:"created"`
+}
+
+type UsersResponse struct {
+	Users []UserResponse `json:"users"`
+}
+
+func (wr *WebRouter) getUsers(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	users, err := wr.storage.Users.GetAll()
+	if err != nil {
+		slog.Error("error fetching users", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	userResponses := make([]UserResponse, len(users))
+	for i, u := range users {
+		userResponses[i] = UserResponse{
+			ID:               u.ID,
+			DisplayName:      u.DisplayName,
+			DiscordID:        u.DiscordID,
+			UserName:         u.UserName,
+			IsSuperuser:      u.IsSuperuser,
+			IsGatewayAllowed: u.IsGatewayAllowed,
+			Created:          u.Created.Format("2006-01-02 15:04:05"),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(UsersResponse{Users: userResponses})
+}
+
+type UpdateUserRequest struct {
+	DisplayName      *string `json:"display_name"`
+	UserName         string  `json:"username"`
+	IsSuperuser      bool    `json:"is_superuser"`
+	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
+}
+
+func (wr *WebRouter) updateUser(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	vars := mux.Vars(r)
+	userID := vars["id"]
+	if userID == "" {
+		http.Error(w, "User ID required", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Convert string ID to int
+	var id int
+	if _, err := fmt.Sscanf(userID, "%d", &id); err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch existing user
+	existingUser, err := wr.storage.Users.GetByID(id)
+	if err != nil || existingUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Update fields
+	existingUser.DisplayName = req.DisplayName
+	existingUser.UserName = req.UserName
+	existingUser.IsSuperuser = req.IsSuperuser
+	existingUser.IsGatewayAllowed = req.IsGatewayAllowed
+
+	err = wr.storage.Users.UpdateUser(existingUser)
+	if err != nil {
+		slog.Error("error updating user", "error", err, "user_id", id)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "User updated successfully",
+	})
+}
+
+func (wr *WebRouter) deleteUser(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	vars := mux.Vars(r)
+	userID := vars["id"]
+	if userID == "" {
+		http.Error(w, "User ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Convert string ID to int
+	var id int
+	if _, err := fmt.Sscanf(userID, "%d", &id); err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Prevent self-deletion
+	if id == user.ID {
+		http.Error(w, "Cannot delete your own account", http.StatusBadRequest)
+		return
+	}
+
+	err = wr.storage.Users.DeleteUser(id)
+	if err != nil {
+		slog.Error("error deleting user", "error", err, "user_id", id)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "User deleted successfully",
 	})
 }

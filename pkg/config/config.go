@@ -24,7 +24,12 @@ type Configuration struct {
 type MeshSettings struct {
 	MqttRoot string
 	Channels []MeshChannelDef
-	SelfNode struct {
+	// VerificationChannels is an ordered list of channel names to try when
+	// verifying a node's downlink capability. The server will try each channel
+	// in order until it receives a response. Once a node responds, its primary
+	// channel is recorded and used for future verification attempts.
+	VerificationChannels []string
+	SelfNode             struct {
 		NodeID    meshtastic.NodeID
 		LongName  string
 		ShortName string

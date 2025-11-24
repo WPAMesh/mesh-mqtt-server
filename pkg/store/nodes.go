@@ -100,13 +100,14 @@ func (b *postgresNodeInfoStore) GetByDiscordID(id int64) (*models.NodeInfo, erro
 
 func (b *postgresNodeInfoStore) SaveInfo(nodeInfo *models.NodeInfo) error {
 	stmt := `
-	INSERT INTO node_info (node_id, user_id, long_name, short_name, node_role, last_seen, last_verified)
-	VALUES (:node_id, :user_id, :long_name, :short_name, :node_role, :last_seen, :last_verified)
+	INSERT INTO node_info (node_id, user_id, long_name, short_name, node_role, primary_channel, last_seen, last_verified)
+	VALUES (:node_id, :user_id, :long_name, :short_name, :node_role, :primary_channel, :last_seen, :last_verified)
 	ON CONFLICT(node_id, user_id)
 	DO UPDATE
 	  SET long_name = :long_name,
 		  short_name = :short_name,
 		  node_role = :node_role,
+		  primary_channel = :primary_channel,
 		  last_seen = :last_seen,
 		  last_verified = :last_verified
 	;

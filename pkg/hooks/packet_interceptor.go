@@ -101,12 +101,18 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 		}
 
 		client.NodeDetails.VerifiedDate = radio.Ptr(time.Now())
+		// Record the channel that successfully verified as the primary channel
+		if client.VerifyChannel != "" {
+			client.NodeDetails.PrimaryChannel = client.VerifyChannel
+		}
 		err := h.config.Storage.NodeDB.SaveInfo(client.NodeDetails)
 		if err != nil {
 			h.config.Server.Log.Error("error updating node info", "node", client.NodeDetails.NodeID, "client", client.ClientID, "error", err)
 			return
 		}
-		h.config.Server.Log.Info("node downlink verified", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic", client.RootTopic)
+		h.config.Server.Log.Info("node downlink verified", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic", client.RootTopic, "channel", client.VerifyChannel)
+		// Clear pending verification state
+		client.SetVerificationPending(0, "")
 	}
 }
 
@@ -168,13 +174,19 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 		} else {
 			if data.RequestId == c.VerifyPacketID {
 				c.NodeDetails.VerifiedDate = radio.Ptr(time.Now())
+				// Record the channel that successfully verified as the primary channel
+				if c.VerifyChannel != "" {
+					c.NodeDetails.PrimaryChannel = c.VerifyChannel
+				}
 				err := h.config.Storage.NodeDB.SaveInfo(c.NodeDetails)
 				if err != nil {
 					h.config.Server.Log.Error("error updating node info", "node", c.NodeDetails.NodeID, "client", c.ClientID, "error", err)
 					return
 				}
 				save = false
-				h.config.Server.Log.Info("node downlink verified", "node", c.NodeDetails.NodeID, "client", c.ClientID, "topic", c.RootTopic)
+				h.config.Server.Log.Info("node downlink verified", "node", c.NodeDetails.NodeID, "client", c.ClientID, "topic", c.RootTopic, "channel", c.VerifyChannel)
+				// Clear pending verification state
+				c.SetVerificationPending(0, "")
 			}
 		}
 	}

@@ -1,0 +1,1 @@
+ALTER TABLE node_info ADD COLUMN primary_channel VARCHAR(32) NOT NULL DEFAULT '';

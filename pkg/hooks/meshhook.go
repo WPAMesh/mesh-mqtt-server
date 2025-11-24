@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -418,15 +419,35 @@ func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
 	cd, ok := h.knownClients[clientID]
 	h.clientLock.Unlock()
 
-	if ok {
-		cd.RLock()
-		shouldReq := cd.IsUsingGatewayTopic() && !cd.IsPendingVerification() && (!cd.IsDownlinkVerified() || cd.IsExpiringSoon() || force)
-		cd.RUnlock()
-		if shouldReq {
+	if !ok {
+		return
+	}
+
+	cd.RLock()
+	shouldReq := cd.IsUsingGatewayTopic() && !cd.IsPendingVerification() && (!cd.IsDownlinkVerified() || cd.IsExpiringSoon() || force)
+	shouldTryNextChannel := cd.IsUsingGatewayTopic() && cd.ShouldTryNextChannel()
+	currentChannel := cd.VerifyChannel
+	cd.RUnlock()
+
+	if shouldReq {
+		// Start a new verification request
+		cd.Lock()
+		defer cd.Unlock()
+		h.RequestNodeInfo(cd)
+		return
+	}
+
+	if shouldTryNextChannel {
+		// Current channel timed out, try the next one
+		nextChannel := h.getNextVerificationChannel(currentChannel)
+		if nextChannel != "" {
 			cd.Lock()
 			defer cd.Unlock()
-			h.RequestNodeInfo(cd)
-			return
+			h.Log.Info("channel verification timeout, trying next channel",
+				"client", clientID,
+				"previous_channel", currentChannel,
+				"next_channel", nextChannel)
+			h.RequestNodeInfoOnChannel(cd, nextChannel)
 		}
 	}
 }
@@ -581,8 +602,47 @@ func (h *MeshtasticHook) TrySetRootTopic(cd *models.ClientDetails, topic string)
 	}
 }
 
-func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
+// getVerificationChannel determines which channel to use for verifying a node.
+// If the node has a known primary channel, it returns that.
+// Otherwise, it returns the first channel from VerificationChannels config,
+// falling back to "LongFast" if no channels are configured.
+func (h *MeshtasticHook) getVerificationChannel(client *models.ClientDetails) string {
+	// If node already has a known primary channel, use it
+	if client.NodeDetails != nil && client.NodeDetails.PrimaryChannel != "" {
+		return client.NodeDetails.PrimaryChannel
+	}
 
+	// Use the first verification channel from config
+	if len(h.config.MeshSettings.VerificationChannels) > 0 {
+		return h.config.MeshSettings.VerificationChannels[0]
+	}
+
+	// Fallback to LongFast if no channels configured
+	return "LongFast"
+}
+
+// getNextVerificationChannel returns the next channel to try after the current one.
+// Returns empty string if there are no more channels to try.
+func (h *MeshtasticHook) getNextVerificationChannel(currentChannel string) string {
+	channels := h.config.MeshSettings.VerificationChannels
+	if len(channels) == 0 {
+		return ""
+	}
+
+	for i, ch := range channels {
+		if ch == currentChannel && i+1 < len(channels) {
+			return channels[i+1]
+		}
+	}
+	return ""
+}
+
+func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
+	channel := h.getVerificationChannel(client)
+	h.RequestNodeInfoOnChannel(client, channel)
+}
+
+func (h *MeshtasticHook) RequestNodeInfoOnChannel(client *models.ClientDetails, channel string) {
 	if client.NodeDetails == nil || client.RootTopic == "" {
 		return
 	}
@@ -600,7 +660,7 @@ func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 		IsUnmessagable: &unmess,
 	}
 
-	pid, err := h.sendProtoMessage("LongFast", client.RootTopic, &nodeInfo, PacketInfo{
+	pid, err := h.sendProtoMessage(channel, client.RootTopic, &nodeInfo, PacketInfo{
 		To:           client.NodeDetails.NodeID,
 		PortNum:      pb.PortNum_NODEINFO_APP,
 		Encrypted:    PSKEncryption,
@@ -608,7 +668,15 @@ func (h *MeshtasticHook) RequestNodeInfo(client *models.ClientDetails) {
 		WantAck:      true,
 	})
 	if err == nil {
-		h.config.Server.Log.Info("verification packet sent to node", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic_root", client.RootTopic)
-		client.SetVerificationPending(pid)
+		h.config.Server.Log.Info("verification packet sent to node", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic_root", client.RootTopic, "channel", channel)
+		client.SetVerificationPending(pid, channel)
+
+		// Schedule a check for channel timeout to try the next channel if needed
+		clientID := client.ClientID
+		go func() {
+			// Wait for channel timeout plus a small buffer
+			time.Sleep(models.ChannelVerifyTimeout + 5*time.Second)
+			h.TryVerifyNode(clientID, false)
+		}()
 	}
 }

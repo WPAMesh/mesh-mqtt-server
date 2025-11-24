@@ -13,6 +13,11 @@ import (
 
 const (
 	MaxValidationAge = 3 * 24 * time.Hour
+	// ChannelVerifyTimeout is how long to wait for a response on a single channel
+	// before trying the next channel in the verification channel list.
+	ChannelVerifyTimeout = 60 * time.Second
+	// MaxVerifyTimeout is the overall timeout for verification attempts across all channels.
+	MaxVerifyTimeout = 15 * time.Minute
 )
 
 type MeshMqttServer interface {
@@ -31,19 +36,21 @@ type ClientDetails struct {
 	RootTopic      string
 	VerifyPacketID uint32
 	VerifyReqTime  *time.Time
+	VerifyChannel  string // Channel used for the current verification request
 	InvalidPackets int
 	ValidGWChecker func() bool
 }
 
 type NodeInfo struct {
-	NodeID       meshtastic.NodeID `db:"node_id"`
-	UserID       int               `db:"user_id"`
-	LongName     string            `db:"long_name"`
-	ShortName    string            `db:"short_name"`
-	NodeRole     string            `db:"node_role"`
-	HwModel      string            `db:"hw_model"`
-	LastSeen     *time.Time        `db:"last_seen"`
-	VerifiedDate *time.Time        `db:"last_verified"`
+	NodeID         meshtastic.NodeID `db:"node_id"`
+	UserID         int               `db:"user_id"`
+	LongName       string            `db:"long_name"`
+	ShortName      string            `db:"short_name"`
+	NodeRole       string            `db:"node_role"`
+	HwModel        string            `db:"hw_model"`
+	PrimaryChannel string            `db:"primary_channel"`
+	LastSeen       *time.Time        `db:"last_seen"`
+	VerifiedDate   *time.Time        `db:"last_verified"`
 }
 
 func (c *ClientDetails) IsMeshDevice() bool {
@@ -74,10 +81,12 @@ func (c *ClientDetails) GetShortName() string {
 	return ""
 }
 
-func (c *ClientDetails) SetVerificationPending(packetID uint32) {
+func (c *ClientDetails) SetVerificationPending(packetID uint32, channel string) {
 	c.VerifyPacketID = packetID
+	c.VerifyChannel = channel
 	if packetID == 0 {
 		c.VerifyReqTime = nil
+		c.VerifyChannel = ""
 	} else {
 		now := time.Now()
 		c.VerifyReqTime = &now
@@ -86,10 +95,23 @@ func (c *ClientDetails) SetVerificationPending(packetID uint32) {
 
 func (c *ClientDetails) IsPendingVerification() bool {
 	if c.VerifyReqTime != nil {
-		expireDate := c.VerifyReqTime.Add(15 * time.Minute)
+		expireDate := c.VerifyReqTime.Add(MaxVerifyTimeout)
 		return time.Now().Before(expireDate)
 	}
 	return false
+}
+
+// ShouldTryNextChannel returns true if a verification request is pending but the
+// per-channel timeout has expired, indicating we should try the next channel.
+func (c *ClientDetails) ShouldTryNextChannel() bool {
+	if c.VerifyReqTime == nil || c.VerifyChannel == "" {
+		return false
+	}
+	channelExpireDate := c.VerifyReqTime.Add(ChannelVerifyTimeout)
+	overallExpireDate := c.VerifyReqTime.Add(MaxVerifyTimeout)
+	now := time.Now()
+	// Channel timeout expired but overall verification window still open
+	return now.After(channelExpireDate) && now.Before(overallExpireDate)
 }
 
 func (c *ClientDetails) IsExpiringSoon() bool {
@@ -147,7 +169,11 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	if !c.IsUsingGatewayTopic() {
 		errs = append(errs, "Not using a gateway root topic")
 	} else if !c.IsDownlinkVerified() {
-		errs = append(errs, "Downlink over LongFast has not been verified")
+		channelName := "primary channel"
+		if c.NodeDetails != nil && c.NodeDetails.PrimaryChannel != "" {
+			channelName = c.NodeDetails.PrimaryChannel
+		}
+		errs = append(errs, fmt.Sprintf("Downlink over %s has not been verified", channelName))
 	}
 	if c.NodeDetails == nil {
 		errs = append(errs, "Node info not received yet")

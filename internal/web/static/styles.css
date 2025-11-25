@@ -128,7 +128,7 @@ html * {
 }
 
 .node-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px light-dark(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.4));
   transform: translateY(-2px);
 }
 
@@ -472,7 +472,7 @@ html * {
   border: none;
   font-size: 2rem;
   cursor: pointer;
-  color: var(--mg-color-dark);
+  color: var(--mg-color-secondary);
   line-height: 1;
   padding: 0.5rem;
 }
@@ -547,13 +547,19 @@ html * {
 }
 
 .message.error {
-  background: #ffe6e6;
+  background: light-dark(
+    color-mix(in srgb, var(--mg-color-red) 10%, var(--mg-color-light)),
+    color-mix(in srgb, var(--mg-color-red) 20%, var(--mg-color-dark))
+  );
   color: var(--mg-color-red);
   border: 1px solid var(--mg-color-red);
 }
 
 .message.success {
-  background: #e6ffe6;
+  background: light-dark(
+    color-mix(in srgb, var(--mg-color-green) 10%, var(--mg-color-light)),
+    color-mix(in srgb, var(--mg-color-green) 20%, var(--mg-color-dark))
+  );
   color: var(--mg-color-green);
   border: 1px solid var(--mg-color-green);
 }
@@ -585,7 +591,7 @@ html * {
 .gateway-explainer {
   margin: 1.5rem 0;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--mg-color-quinary);
   border-radius: var(--mg-control-radius);
 }
 
@@ -601,18 +607,18 @@ html * {
 .gateway-details summary {
   cursor: pointer;
   padding: 0.75rem;
-  background: white;
+  background: var(--mg-color-initial);
   border-radius: var(--mg-control-radius);
   margin-bottom: 0.5rem;
 }
 
 .gateway-details summary:hover {
-  background: #e9ecef;
+  background: var(--mg-color-quinary);
 }
 
 .gateway-use-cases {
   padding: 1rem;
-  background: white;
+  background: var(--mg-color-initial);
   border-radius: var(--mg-control-radius);
 }
 
@@ -629,13 +635,16 @@ html * {
 .gateway-warning {
   margin-top: 1rem;
   padding: 1rem;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
+  background: light-dark(
+    color-mix(in srgb, var(--mg-color-orange) 15%, var(--mg-color-light)),
+    color-mix(in srgb, var(--mg-color-orange) 20%, var(--mg-color-dark))
+  );
+  border: 1px solid var(--mg-color-orange);
   border-radius: var(--mg-control-radius);
 }
 
 .gateway-warning i {
-  color: #ff6b00;
+  color: var(--mg-color-orange);
   margin-right: 0.5rem;
 }
 
@@ -673,7 +682,7 @@ html * {
 
 .topic-radio-option:hover .topic-radio-content {
   border-color: var(--mg-color-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
 }
 
 .topic-radio-header {
@@ -887,7 +896,7 @@ html * {
   text-align: center;
   padding: 2rem !important;
   font-style: italic;
-  color: #666;
+  color: var(--mg-color-tertiary);
 }
 
 .error-message {
@@ -898,11 +907,17 @@ html * {
 
 /* Highlight rows with validation errors */
 tr.has-errors {
-  background-color: #fff3cd;
+  background-color: light-dark(
+    color-mix(in srgb, var(--mg-color-orange) 15%, var(--mg-color-light)),
+    color-mix(in srgb, var(--mg-color-orange) 20%, var(--mg-color-dark))
+  );
 }
 
 tr.has-errors:hover {
-  background-color: #ffe69c;
+  background-color: light-dark(
+    color-mix(in srgb, var(--mg-color-orange) 25%, var(--mg-color-light)),
+    color-mix(in srgb, var(--mg-color-orange) 30%, var(--mg-color-dark))
+  );
 }
 
 /* Prevent node IDs from wrapping */

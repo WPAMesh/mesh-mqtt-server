@@ -113,6 +113,8 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 		h.config.Server.Log.Info("node downlink verified", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic", client.RootTopic, "channel", client.VerifyChannel)
 		// Clear pending verification state
 		client.SetVerificationPending(0, "")
+		// Notify subscribers about the verification status change
+		go h.notifyClientChange()
 	}
 }
 
@@ -187,6 +189,8 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 				h.config.Server.Log.Info("node downlink verified", "node", c.NodeDetails.NodeID, "client", c.ClientID, "topic", c.RootTopic, "channel", c.VerifyChannel)
 				// Clear pending verification state
 				c.SetVerificationPending(0, "")
+				// Notify subscribers about the verification status change
+				go h.notifyClientChange()
 			}
 		}
 	}
@@ -196,8 +200,9 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 			h.config.Server.Log.Error("error updating node info", "node", c.NodeDetails.NodeID, "client", c.ClientID, "error", err)
 			return
 		}
+		// Notify subscribers about node info change
+		go h.notifyClientChange()
 	}
-	// TODO: Update database record as well
 }
 
 func (c *MeshtasticHook) processTraceroute(env *pb.ServiceEnvelope, data *pb.Data, disco *pb.RouteDiscovery) {

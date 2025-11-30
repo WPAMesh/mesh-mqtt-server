@@ -1,0 +1,59 @@
+package components
+
+// Alert represents an alert message to display
+type Alert struct {
+	Type    string
+	Message string
+	Detail  *string
+}
+
+// LayoutProps holds the data for the main layout
+type LayoutProps struct {
+	IsSuperuser    bool
+	ShowSetupGuide bool
+	Alerts         []Alert
+}
+
+templ Layout(props LayoutProps) {
+	<div class="wrapper">
+		<header>
+			<div class="logo-view">
+				<a href="/">
+					<img class="logo" src="/static/pgh_mesh_nobg.svg" alt="Pittsburgh Mesh Logo"/>
+					<span>MQTT Server</span>
+				</a>
+			</div>
+			<nav id="header-nav">
+				<ul class="mg-nav mg-nav--inline" data-toggle="nav">
+					<li class="active"><a href="/">My Nodes</a></li>
+					if props.ShowSetupGuide {
+						<li><a href="#" onclick="openOnboarding(2); return false;">Setup Guide</a></li>
+					}
+					if props.IsSuperuser {
+						<li><a href="/all-nodes">All Nodes</a></li>
+						<li><a href="/users">Users</a></li>
+					}
+					<li><a href="/auth/logout">Logout</a></li>
+				</ul>
+			</nav>
+			<div class="burger"><i class="fas fa-bars"></i></div>
+		</header>
+
+		for i, a := range props.Alerts {
+			<div class="alert alert-{ a.Type }" id={ templ.EscapeString("alert-added-" + string(rune(i))) }>
+				<span class="alert-text">{ a.Message }</span>
+				if a.Detail != nil {
+					<span class="alert-detail">{ *a.Detail }</span>
+				}
+			</div>
+		}
+
+		<div class="mg-container">
+			{ children... }
+		</div>
+
+		<footer>
+			<a href="https://github.com/kabili207/mesh-mqtt-server">Github</a> | made by kabili207
+		</footer>
+	</div>
+}

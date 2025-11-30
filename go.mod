@@ -6,6 +6,7 @@ require github.com/go-git/go-git/v6 v6.0.0-20250728093604-6aaf1933ecab
 
 require (
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
+	github.com/a-h/templ v0.3.960 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect

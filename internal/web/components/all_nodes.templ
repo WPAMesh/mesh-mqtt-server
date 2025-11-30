@@ -1,0 +1,71 @@
+package components
+
+templ AllNodesPage(data AllNodesPageData) {
+	@Base("All Nodes - WPAmesh") {
+		@Layout(LayoutProps{
+			IsSuperuser:    data.IsSuperuser,
+			ShowSetupGuide: false,
+		}) {
+			<div id="tables-example">
+				<div class="table-controls">
+					<h3>All Nodes</h3>
+					<div class="filter-controls">
+						<input type="hidden" id="filter-connected" checked/>
+						<label class="mg-toggle mg-text-s">
+							Valid Gateways Only
+							<input
+								type="checkbox"
+								id="filter-gateway"
+								hx-get="/api/nodes-html?all_users=true"
+								hx-target="#nodes-tbody"
+								hx-swap="innerHTML"
+								hx-trigger="change"
+							/>
+							<span class="mg-toggle--icon mg-icon--s"></span>
+						</label>
+						<label class="mg-toggle mg-text-s">
+							Auto-Refresh (15s)
+							<input type="checkbox" id="auto-refresh"/>
+							<span class="mg-toggle--icon mg-icon--s"></span>
+						</label>
+					</div>
+				</div>
+				@NodesTable(data.Nodes, true, data.SSEEndpoint)
+
+				<h3>Other Connections</h3>
+				@OtherClientsTable(data.OtherClients, true, data.SSEEndpoint)
+			</div>
+
+			<script>
+				window.isAdmin = true;
+
+				// Auto-refresh handler
+				document.addEventListener('DOMContentLoaded', function() {
+					var autoRefreshTimeout = null;
+					var autoRefreshToggle = document.getElementById('auto-refresh');
+
+					function scheduleNextRefresh() {
+						if (autoRefreshTimeout) {
+							clearTimeout(autoRefreshTimeout);
+						}
+						autoRefreshTimeout = setTimeout(function() {
+							htmx.trigger('#nodes-tbody', 'refresh');
+							scheduleNextRefresh();
+						}, 15000);
+					}
+
+					if (autoRefreshToggle) {
+						autoRefreshToggle.addEventListener('change', function() {
+							if (!this.checked && autoRefreshTimeout) {
+								clearTimeout(autoRefreshTimeout);
+								autoRefreshTimeout = null;
+							} else if (this.checked) {
+								scheduleNextRefresh();
+							}
+						});
+					}
+				});
+			</script>
+		}
+	}
+}

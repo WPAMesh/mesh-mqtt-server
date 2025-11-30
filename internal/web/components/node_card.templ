@@ -1,0 +1,362 @@
+package components
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+func nodeValidationErrorsJSON(nodes []NodeData) string {
+	errors := make(map[string][]string)
+	for _, node := range nodes {
+		if node.NodeID != "" && len(node.ValidationErrors) > 0 {
+			errors[node.NodeID] = node.ValidationErrors
+		}
+	}
+	data, _ := json.Marshal(errors)
+	return string(data)
+}
+
+// NodeCard renders a single node card
+templ NodeCard(node NodeData) {
+	<div class="node-card mg-border mg-rounded1" style={ fmt.Sprintf("--node-color: rgb(%s); --node-color-bg: rgba(%s, 0.15);", getNodeColor(node), getNodeColor(node)) }>
+		<!-- Header -->
+		<div class="node-header">
+			<div class="node-header-left">
+				<span class="node-badge">{ getShortName(node) }</span>
+				<span class="node-name">{ getLongName(node) }</span>
+			</div>
+			<div class="mg-row mg-items-center">
+				@proxyIcon(node.ProxyType)
+			</div>
+		</div>
+
+		<!-- Root topic -->
+		<div class="node-topic">
+			Topic: <code>{ node.RootTopic }</code>
+		</div>
+
+		<!-- Downlink + Gateway Status -->
+		<div class="node-status-row">
+			<div class={ statusBadgeClass(node.IsDownlink) }>
+				<i class={ statusIconClass(node.IsDownlink) }></i>
+				<span>Downlink</span>
+			</div>
+			<div
+				class={ statusBadgeClickableClass(node.IsValidGateway) }
+				data-node-id={ node.NodeID }
+				data-node-name={ getLongName(node) }
+				data-is-valid={ boolStr(node.IsValidGateway) }
+				onclick="showValidationErrors(this)"
+				if !node.IsValidGateway {
+					title="Click to see validation errors"
+				}
+			>
+				<i class={ statusIconClass(node.IsValidGateway) }></i>
+				<span>Valid GW</span>
+			</div>
+		</div>
+
+		<!-- Connection Info -->
+		<div class="node-info-row">
+			<span class="node-info-text">{ getIPAddress(node) }</span>
+			<span class="node-info-text">{ getNodeRole(node) }</span>
+			<span class="node-info-text">{ getNodeID(node) }</span>
+		</div>
+	</div>
+}
+
+// NodeGrid renders a grid of node cards with htmx SSE support
+templ NodeGrid(nodes []NodeData, sseEndpoint string) {
+	<div
+		id="node-grid"
+		class="node-grid"
+		if sseEndpoint != "" {
+			hx-ext="sse"
+			sse-connect={ sseEndpoint }
+			sse-swap="nodes-update"
+			hx-swap="innerHTML"
+		}
+	>
+		if len(nodes) == 0 {
+			<div class="no-nodes-message"><i>No nodes found</i></div>
+		} else {
+			for _, node := range nodes {
+				@NodeCard(node)
+			}
+		}
+		<!-- Store validation errors as data attribute for modal -->
+		@ValidationErrorsData(nodes)
+	</div>
+}
+
+// NodeGridContent renders just the node cards content (for SSE updates)
+templ NodeGridContent(nodes []NodeData) {
+	if len(nodes) == 0 {
+		<div class="no-nodes-message"><i>No nodes found</i></div>
+	} else {
+		for _, node := range nodes {
+			@NodeCard(node)
+		}
+	}
+	@ValidationErrorsData(nodes)
+}
+
+// ValidationErrorsData renders a script that stores validation errors for the modal
+templ ValidationErrorsData(nodes []NodeData) {
+	@templ.Raw("<script>window.nodeValidationErrors = Object.assign(window.nodeValidationErrors || {}, " + nodeValidationErrorsJSON(nodes) + ");</script>")
+}
+
+// NodeTableRow renders a single row in the nodes table (for admin view)
+templ NodeTableRow(node NodeData, showUser bool) {
+	<tr class={ tableRowClass(node) } title={ tableRowTitle(node) }>
+		<td>{ node.NodeID }</td>
+		<td>{ getShortName(node) }</td>
+		<td>{ getLongName(node) }</td>
+		<td>
+			if node.ProxyType != "" {
+				{ node.ProxyType }
+			} else {
+				<i>none</i>
+			}
+		</td>
+		<td>
+			if node.IsConnected {
+				{ node.Address }
+			} else {
+				<i>disconnected</i>
+			}
+		</td>
+		<td>
+			if node.IsDownlink {
+				Yes
+			} else {
+				No
+			}
+		</td>
+		<td>
+			if node.IsValidGateway {
+				Yes
+			} else {
+				No
+			}
+		</td>
+		if showUser {
+			<td>{ node.UserDisplay }</td>
+		}
+	</tr>
+}
+
+// NodesTable renders a table of nodes (for admin view)
+templ NodesTable(nodes []NodeData, showUser bool, sseEndpoint string) {
+	<table class="table--responsive" id="nodes-table">
+		<thead>
+			<tr>
+				<th>Node ID</th>
+				<th colspan="2">Name</th>
+				<th>Proxy Type</th>
+				<th>Address</th>
+				<th>Downlink?</th>
+				<th>Valid <abbr title="gateway">GW</abbr>?</th>
+				if showUser {
+					<th>User</th>
+				}
+			</tr>
+		</thead>
+		<tbody
+			id="nodes-tbody"
+			if sseEndpoint != "" {
+				hx-ext="sse"
+				sse-connect={ sseEndpoint }
+				sse-swap="nodes-update"
+				hx-swap="innerHTML"
+			}
+		>
+			@NodesTableContent(nodes, showUser)
+		</tbody>
+	</table>
+}
+
+// NodesTableContent renders just the table body content (for SSE updates)
+templ NodesTableContent(nodes []NodeData, showUser bool) {
+	if len(nodes) == 0 {
+		<tr>
+			<td colspan={ colSpan(showUser) }><i>No nodes found</i></td>
+		</tr>
+	} else {
+		for _, node := range nodes {
+			@NodeTableRow(node, showUser)
+		}
+	}
+}
+
+// OtherClientsTable renders a table of other (non-mesh) clients
+templ OtherClientsTable(clients []OtherClientData, showUser bool, sseEndpoint string) {
+	<table class="table--responsive" id="other-clients-table">
+		<thead>
+			<tr>
+				<th>Client ID</th>
+				<th>Address</th>
+				if showUser {
+					<th>User</th>
+				}
+			</tr>
+		</thead>
+		<tbody
+			id="other-clients-tbody"
+			if sseEndpoint != "" {
+				hx-ext="sse"
+				sse-connect={ sseEndpoint + "&type=other" }
+				sse-swap="other-clients-update"
+				hx-swap="innerHTML"
+			}
+		>
+			@OtherClientsTableContent(clients, showUser)
+		</tbody>
+	</table>
+}
+
+// OtherClientsTableContent renders just the other clients table content (for SSE updates)
+templ OtherClientsTableContent(clients []OtherClientData, showUser bool) {
+	if len(clients) == 0 {
+		<tr>
+			<td colspan={ otherClientsColSpan(showUser) }><i>No other clients</i></td>
+		</tr>
+	} else {
+		for _, client := range clients {
+			<tr>
+				<td>{ client.ClientID }</td>
+				<td>
+					if client.Address != "" {
+						{ client.Address }
+					} else {
+						<i>disconnected</i>
+					}
+				</td>
+				if showUser {
+					<td>{ client.UserDisplay }</td>
+				}
+			</tr>
+		}
+	}
+}
+
+// Helper functions
+
+func getNodeColor(node NodeData) string {
+	if node.NodeColor != "" {
+		return node.NodeColor
+	}
+	return "128, 128, 128"
+}
+
+func getShortName(node NodeData) string {
+	if node.ShortName != "" {
+		return node.ShortName
+	}
+	return "?"
+}
+
+func getLongName(node NodeData) string {
+	if node.LongName != "" {
+		return node.LongName
+	}
+	return "unknown"
+}
+
+func getNodeRole(node NodeData) string {
+	if node.NodeRole != "" {
+		return node.NodeRole
+	}
+	return "n/a"
+}
+
+func getNodeID(node NodeData) string {
+	if node.NodeID != "" {
+		return node.NodeID
+	}
+	return "n/a"
+}
+
+func getIPAddress(node NodeData) string {
+	if node.Address != "" {
+		// Split host:port and return just the host
+		for i := len(node.Address) - 1; i >= 0; i-- {
+			if node.Address[i] == ':' {
+				return node.Address[:i]
+			}
+		}
+		return node.Address
+	}
+	return "disconnected"
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func statusBadgeClass(isSuccess bool) string {
+	if isSuccess {
+		return "status-badge status-badge-success"
+	}
+	return "status-badge status-badge-error"
+}
+
+func statusBadgeClickableClass(isSuccess bool) string {
+	if isSuccess {
+		return "status-badge status-badge-clickable status-badge-success"
+	}
+	return "status-badge status-badge-clickable status-badge-error"
+}
+
+func statusIconClass(isSuccess bool) string {
+	if isSuccess {
+		return "fas fa-check-circle"
+	}
+	return "fas fa-times-circle"
+}
+
+func tableRowClass(node NodeData) string {
+	if len(node.ValidationErrors) > 0 {
+		return "has-errors"
+	}
+	return ""
+}
+
+func tableRowTitle(node NodeData) string {
+	if len(node.ValidationErrors) > 0 {
+		title := "Validation errors: "
+		for i, err := range node.ValidationErrors {
+			if i > 0 {
+				title += ", "
+			}
+			title += err
+		}
+		return title
+	}
+	return ""
+}
+
+func colSpan(showUser bool) string {
+	if showUser {
+		return "8"
+	}
+	return "7"
+}
+
+func otherClientsColSpan(showUser bool) string {
+	if showUser {
+		return "3"
+	}
+	return "2"
+}
+
+templ proxyIcon(proxyType string) {
+	if proxyType == "Android" {
+		<i class="fab fa-android" style="font-size: 1.25em; margin-left: 0.5rem;" title="Android Proxy"></i>
+	} else if proxyType == "Apple" {
+		<i class="fab fa-apple" style="font-size: 1.25em; margin-left: 0.5rem;" title="iOS Proxy"></i>
+	}
+}

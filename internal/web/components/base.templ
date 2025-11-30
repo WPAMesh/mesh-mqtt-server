@@ -1,0 +1,72 @@
+package components
+
+templ Base(title string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="dark">
+		<head>
+			<!-- htmx -->
+			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+			<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+
+			<!-- Google Fonts -->
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"/>
+
+			<!-- CSS Reset -->
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"/>
+
+			<!-- Font Awesome -->
+			<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css"/>
+
+			<!-- Mg+ CSS -->
+			<link rel="stylesheet" href="https://cdn.mgpluscss.com/v1.4.5/mgplus.css"/>
+
+			<link rel="stylesheet" href="/static/styles.css"/>
+
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="theme-color" content="#94b5eb"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			<div class="main mg-container">
+				{ children... }
+			</div>
+			<script src="https://cdn.mgpluscss.com/v1.4.5/mgplus-vanilla.js?register=all"></script>
+			<script src="/static/site.js"></script>
+		</body>
+	</html>
+}
+
+// BaseLogin is a simpler base for the login page without the full layout
+templ BaseLogin(title string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="dark">
+		<head>
+			<!-- htmx -->
+			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+			<!-- Google Fonts -->
+			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"/>
+
+			<!-- CSS Reset -->
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"/>
+
+			<!-- Font Awesome -->
+			<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css"/>
+
+			<!-- Mg+ CSS -->
+			<link rel="stylesheet" href="https://cdn.mgpluscss.com/v1.4.5/mgplus.css"/>
+
+			<link rel="stylesheet" href="/static/styles.css"/>
+
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="theme-color" content="#94b5eb"/>
+			<title>{ title }</title>
+		</head>
+		<body>
+			<div class="main mg-container">
+				{ children... }
+			</div>
+			<script src="https://cdn.mgpluscss.com/v1.4.5/mgplus-vanilla.js?register=all"></script>
+		</body>
+	</html>
+}

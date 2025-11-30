@@ -1,0 +1,333 @@
+package components
+
+import "encoding/json"
+
+func nodesToValidationErrorsJSON(nodes []NodeData) string {
+	errors := make(map[string][]string)
+	for _, node := range nodes {
+		if node.NodeID != "" && len(node.ValidationErrors) > 0 {
+			errors[node.NodeID] = node.ValidationErrors
+		}
+	}
+	data, _ := json.Marshal(errors)
+	return string(data)
+}
+
+templ MyNodesPage(data MyNodesPageData) {
+	@Base("My Nodes - WPAmesh") {
+		@Layout(LayoutProps{
+			IsSuperuser:    data.IsSuperuser,
+			ShowSetupGuide: data.MqttConfig != nil,
+		}) {
+			<!-- Onboarding Modal -->
+			if data.MqttConfig != nil {
+				@OnboardingModal(data.MqttConfig, data.ShowOnboarding)
+			}
+
+			<div id="nodes-section">
+				<div class="table-controls">
+					<h3>Nodes</h3>
+					<div class="filter-controls">
+						<label class="mg-toggle mg-text-s">
+							Connected Only
+							<input type="checkbox" id="filter-connected" checked hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-gateway" hx-trigger="change"/>
+							<span class="mg-toggle--icon mg-icon--s"></span>
+						</label>
+						<label class="mg-toggle mg-text-s">
+							Valid Gateways Only
+							<input type="checkbox" id="filter-gateway" hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-connected" hx-trigger="change"/>
+							<span class="mg-toggle--icon mg-icon--s"></span>
+						</label>
+					</div>
+				</div>
+
+				<div class="node-container">
+					@NodeGrid(data.Nodes, data.SSEEndpoint)
+				</div>
+
+				<!-- Validation Errors Modal -->
+				@ValidationModal()
+
+				<h3>Other Connections</h3>
+				@OtherClientsTable(data.OtherClients, false, data.SSEEndpoint)
+			</div>
+
+			<!-- Store validation errors for JavaScript access -->
+			@templ.Raw("<script>window.nodeValidationErrors = " + nodesToValidationErrorsJSON(data.Nodes) + ";</script>")
+
+			if data.MqttConfig != nil {
+				@templ.Raw("<script>window.mqttTopics = { standard: '" + data.MqttConfig.RootTopic + "', gateway: '" + data.MqttConfig.GatewayTopic + "' };</script>")
+			}
+			<script>
+				window.isAdmin = false;
+			</script>
+		}
+	}
+}
+
+templ ValidationModal() {
+	<div id="validation-modal" class="mg-modal">
+		<div class="mg-modal--content validation-modal-content">
+			<button class="modal-close" onclick="closeValidationModal()">&times;</button>
+			<h3 id="validation-modal-title">Gateway Validation Errors</h3>
+			<div id="validation-modal-body">
+				<!-- Errors will be populated here -->
+			</div>
+			<div class="modal-actions">
+				<button class="mg-button mg-button--primary" onclick="closeValidationModal()">Close</button>
+			</div>
+		</div>
+	</div>
+}
+
+templ OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) {
+	<div id="onboarding-modal" class={ templ.KV("mg-modal", true), templ.KV("opened", showOnboarding) }>
+		<div class="mg-modal--content onboarding-content">
+			<button class="modal-close" onclick="closeOnboarding()">&times;</button>
+
+			<!-- Wizard Header -->
+			<div class="wizard-header mg-text-center">
+				<h2>Setup Wizard</h2>
+				<p>Let's configure your Meshtastic device step by step</p>
+			</div>
+
+			<!-- Progress Indicator -->
+			<div class="wizard-progress mg-pad-top-3">
+				<div class="wizard-steps mg-flex mg-justify-between">
+					<div class="wizard-step active" data-step="1">
+						<div class="step-circle">1</div>
+						<div class="step-label mg-text-small">Password</div>
+					</div>
+					<div class="wizard-step" data-step="2">
+						<div class="step-circle">2</div>
+						<div class="step-label mg-text-small">Credentials</div>
+					</div>
+					<div class="wizard-step" data-step="3">
+						<div class="step-circle">3</div>
+						<div class="step-label mg-text-small">MQTT</div>
+					</div>
+					<div class="wizard-step" data-step="4">
+						<div class="step-circle">4</div>
+						<div class="step-label mg-text-small">Topic</div>
+					</div>
+					<div class="wizard-step" data-step="5">
+						<div class="step-circle">5</div>
+						<div class="step-label mg-text-small">LoRa</div>
+					</div>
+					<div class="wizard-step" data-step="6">
+						<div class="step-circle">6</div>
+						<div class="step-label mg-text-small">Channels</div>
+					</div>
+				</div>
+				<div class="progress-bar-container mg-marg-top-2">
+					<div class="progress-bar-fill" id="wizard-progress-fill"></div>
+				</div>
+			</div>
+
+			<!-- Wizard Body -->
+			<div class="wizard-body mg-pad-top-5">
+				<!-- Step 1: Set Password -->
+				@WizardStep1()
+
+				<!-- Step 2: MQTT Credentials -->
+				@WizardStep2(mqttConfig)
+
+				<!-- Step 3: MQTT Settings -->
+				@WizardStep3()
+
+				<!-- Step 4: Root Topic -->
+				@WizardStep4(mqttConfig)
+
+				<!-- Step 5: LoRa Settings -->
+				@WizardStep5()
+
+				<!-- Step 6: Channel Configuration -->
+				@WizardStep6(mqttConfig)
+			</div>
+
+			<!-- Wizard Navigation -->
+			<div class="wizard-navigation mg-pad-top-4 mg-pad-bottom-2">
+				<button class="mg-button wizard-btn-prev" onclick="wizardPrevStep()" style="visibility: hidden;">Previous</button>
+				<button class="mg-button mg-button--primary wizard-btn-next" id="wizard-next-btn" onclick="wizardNextStep()">Next</button>
+				<button class="mg-button mg-button--primary wizard-btn-finish" onclick="closeOnboarding()" style="display: none;">Finish</button>
+			</div>
+		</div>
+	</div>
+}
+
+templ WizardStep1() {
+	<div class="wizard-step-content active" data-step="1">
+		<h3 class="mg-marg-bottom-2">Set Your MQTT Password</h3>
+		<p class="mg-marg-bottom-3">Choose a secure password for your MQTT connection (minimum 8 characters):</p>
+		<div class="password-form">
+			<input type="password" id="mqtt-password" placeholder="Enter password" class="mg-input mg-marg-bottom-2"/>
+			<input type="password" id="mqtt-password-confirm" placeholder="Confirm password" class="mg-input mg-marg-bottom-2"/>
+			<div id="password-message" class="message"></div>
+		</div>
+	</div>
+}
+
+templ WizardStep2(mqttConfig *MqttConfigData) {
+	<div class="wizard-step-content" data-step="2" style="display: none;">
+		<h3 class="mg-marg-bottom-2">Your MQTT Credentials</h3>
+		<p class="mg-marg-bottom-3">Use these credentials to configure your Meshtastic device:</p>
+		<div class="credential-box mg-marg-bottom-3">
+			<label class="mg-text-bold mg-marg-bottom-1">Server Address</label>
+			<div class="copy-field">
+				<code>{ mqttConfig.ServerAddress }</code>
+				<button class="copy-btn mg-button mg-button--small" onclick={ copyToClipboardJS(mqttConfig.ServerAddress) }>Copy</button>
+			</div>
+		</div>
+		<div class="credential-box mg-marg-bottom-3">
+			<label class="mg-text-bold mg-marg-bottom-1">Username</label>
+			<div class="copy-field">
+				<code>{ mqttConfig.Username }</code>
+				<button class="copy-btn mg-button mg-button--small" onclick={ copyToClipboardJS(mqttConfig.Username) }>Copy</button>
+			</div>
+		</div>
+		<div class="credential-box mg-marg-bottom-3">
+			<label class="mg-text-bold mg-marg-bottom-1">Password</label>
+			<div class="copy-field">
+				<code id="user-password">Your chosen password</code>
+			</div>
+		</div>
+	</div>
+}
+
+templ WizardStep3() {
+	<div class="wizard-step-content" data-step="3" style="display: none;">
+		<h3 class="mg-marg-bottom-2">MQTT Module Settings</h3>
+		<p class="mg-marg-bottom-3">Configure these settings in your Meshtastic MQTT module:</p>
+		<div class="settings-grid">
+			<div class="setting-item">
+				<span class="setting-label">Encryption:</span>
+				<span class="setting-value">Enabled</span>
+			</div>
+			<div class="setting-item">
+				<span class="setting-label">TLS:</span>
+				<span class="setting-value">Disabled</span>
+			</div>
+			<div class="setting-item">
+				<span class="setting-label">JSON:</span>
+				<span class="setting-value">Disabled</span>
+			</div>
+		</div>
+	</div>
+}
+
+templ WizardStep4(mqttConfig *MqttConfigData) {
+	<div class="wizard-step-content" data-step="4" style="display: none;">
+		<h3 class="mg-marg-bottom-2">Choose Your Node Role</h3>
+		<p class="mg-marg-bottom-3">Select the role that best describes how you'll use your node:</p>
+
+		<div class="topic-selection">
+			<label class="topic-radio-option">
+				<input type="radio" name="node-role" value="standard" checked onchange="updateTopicSelection('standard')"/>
+				<div class="topic-radio-content">
+					<div class="topic-radio-header">
+						<i class="fas fa-mobile-alt"></i>
+						<h4>Standard Node</h4>
+					</div>
+					<p class="topic-radio-description">For mobile devices and nodes within RF range of the mesh</p>
+					<ul class="topic-radio-details">
+						<li>Mobile devices (phone, vehicle, portable)</li>
+						<li>Within RF range of existing mesh nodes</li>
+						<li>Already seeing nodes from MQTT</li>
+						<li>No consistent location or internet connection</li>
+					</ul>
+				</div>
+			</label>
+
+			<label class="topic-radio-option">
+				<input type="radio" name="node-role" value="gateway" onchange="updateTopicSelection('gateway')"/>
+				<div class="topic-radio-content">
+					<div class="topic-radio-header">
+						<i class="fas fa-tower-broadcast"></i>
+						<h4>Gateway Node</h4>
+					</div>
+					<p class="topic-radio-description">For fixed location nodes bridging distant or isolated mesh regions</p>
+					<ul class="topic-radio-details">
+						<li>Fixed location with reliable power &amp; internet</li>
+						<li>Positioned to bridge between regions</li>
+						<li>Connected to many nodes (directly or 1 hop)</li>
+						<li>Alternatively, very few other nodes via RF in your area</li>
+					</ul>
+					<div class="gateway-warning-compact">
+						<i class="fas fa-exclamation-triangle"></i> Gateway nodes must pass validation checks. Failed nodes are auto-redirected to standard topic.
+					</div>
+				</div>
+			</label>
+		</div>
+
+		<div class="selected-topic-display mg-marg-top-3">
+			<h4 class="mg-marg-bottom-2">Your Root Topic:</h4>
+			<div class="credential-box">
+				<div class="copy-field">
+					<code id="selected-topic">{ mqttConfig.RootTopic }</code>
+					<button class="copy-btn mg-button mg-button--small" onclick="copySelectedTopic()">Copy</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ WizardStep5() {
+	<div class="wizard-step-content" data-step="5" style="display: none;">
+		<h3 class="mg-marg-bottom-2">LoRa Settings</h3>
+		<p class="mg-marg-bottom-3">Configure these settings in your Meshtastic LoRa module:</p>
+		<div class="settings-grid">
+			<div class="setting-item">
+				<span class="setting-label">OK to MQTT:</span>
+				<span class="setting-value">Enabled</span>
+			</div>
+			<div class="setting-item">
+				<span class="setting-label">Ignore MQTT:</span>
+				<span class="setting-value">Disabled</span>
+			</div>
+			<div class="setting-item">
+				<span class="setting-label">Hop Limit:</span>
+				<span class="setting-value">5 (recommended)</span>
+			</div>
+		</div>
+	</div>
+}
+
+templ WizardStep6(mqttConfig *MqttConfigData) {
+	<div class="wizard-step-content" data-step="6" style="display: none;">
+		<h3 class="mg-marg-bottom-2">Channel Configuration</h3>
+		<p class="mg-marg-bottom-3">Configure these channels in your Meshtastic device:</p>
+		for _, ch := range mqttConfig.Channels {
+			if ch.Export {
+				<div class="channel-box mg-marg-bottom-3">
+					<h4>{ ch.Name }</h4>
+					<div class="credential-box mg-marg-bottom-2">
+						<label class="mg-text-bold mg-marg-bottom-1">PSK (Pre-Shared Key)</label>
+						<div class="copy-field">
+							<code class="psk-code">{ ch.PSK }</code>
+							<button class="copy-btn mg-button mg-button--small" onclick={ copyToClipboardJS(ch.PSK) }>Copy</button>
+						</div>
+					</div>
+					<div class="channel-settings">
+						<span><strong>Uplink:</strong> Enabled</span>
+						<span>
+							<strong>Downlink:</strong>
+							if ch.Name == "LongFast" {
+								Enabled (for Gateways)
+							} else {
+								Enabled
+							}
+						</span>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}
+
+script copyToClipboardJS(text string) {
+	navigator.clipboard.writeText(text).then(function() {
+		console.log('Copied to clipboard');
+	}).catch(function(err) {
+		console.error('Failed to copy:', err);
+	});
+}

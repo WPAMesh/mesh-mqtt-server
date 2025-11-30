@@ -113,19 +113,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Add custom hook (ExampleHook) to the server
+	// Create router and client notifier first
+	router := &routes.WebRouter{}
+	clientNotifier := routes.NewClientNotifier()
+	router.ClientNotifier = clientNotifier
 
+	// Add custom hook (MeshtasticHook) to the server
 	meshHook := new(hooks.MeshtasticHook)
 
 	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
-		Server:       server,
-		Storage:      storage,
-		MeshSettings: config.MeshSettings,
+		Server:         server,
+		Storage:        storage,
+		MeshSettings:   config.MeshSettings,
+		ClientNotifier: clientNotifier,
 	})
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Set the MQTT server on the router
+	router.MqttServer = meshHook
 
 	// Start the server
 	go func() {
@@ -135,9 +143,6 @@ func main() {
 		}
 	}()
 
-	router := &routes.WebRouter{
-		MqttServer: meshHook,
-	}
 	go func() {
 		err := router.Initialize(config, *storage)
 		if err != nil {

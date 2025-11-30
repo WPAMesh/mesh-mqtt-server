@@ -59,11 +59,17 @@ var (
 	}
 )
 
+// ClientChangeNotifier is an interface for notifying when clients change
+type ClientChangeNotifier interface {
+	Notify()
+}
+
 // Options contains configuration settings for the hook.
 type MeshtasticHookOptions struct {
-	Server       *mqtt.Server
-	Storage      *store.Stores
-	MeshSettings config.MeshSettings
+	Server         *mqtt.Server
+	Storage        *store.Stores
+	MeshSettings   config.MeshSettings
+	ClientNotifier ClientChangeNotifier
 }
 
 var _ models.MeshMqttServer = (*MeshtasticHook)(nil)
@@ -137,6 +143,13 @@ func (h *MeshtasticHook) GetUserClients(mqttUser string) []*models.ClientDetails
 	return userClients
 }
 
+// notifyClientChange triggers a notification that clients have changed
+func (h *MeshtasticHook) notifyClientChange() {
+	if h.config.ClientNotifier != nil {
+		h.config.ClientNotifier.Notify()
+	}
+}
+
 // OnConnectAuthenticate returns true if the connecting client is allowed to connect
 // and stores details about the client for later
 func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
@@ -184,6 +197,9 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 
 			h.Log.Info("client authenticated", "username", user, "client", clientID, "proxy", proxyType)
 		}
+
+		// Notify subscribers about the new client
+		go h.notifyClientChange()
 	}
 	if validatedUser == nil {
 		h.Log.Warn("authentication failed", "username", user, "remote_addr", cl.Net.Remote)
@@ -458,16 +474,23 @@ func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
 func (h *MeshtasticHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 	h.clientLock.Lock()
 	c, ok := h.knownClients[cl.ID]
+	deleted := false
 	if ok && c.Address == cl.Net.Remote {
 		delete(h.knownClients, cl.ID)
+		deleted = true
 	}
 	h.clientLock.Unlock()
+
 	if err != nil {
 		h.Log.Info("client disconnected", "client", cl.ID, "expire", expire, "error", err)
 	} else {
 		h.Log.Info("client disconnected", "client", cl.ID, "expire", expire)
 	}
 
+	// Notify subscribers about the client disconnection
+	if deleted {
+		go h.notifyClientChange()
+	}
 }
 
 func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {

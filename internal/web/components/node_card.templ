@@ -98,53 +98,151 @@ templ ValidationErrorsData(nodes []NodeData) {
 }
 
 // NodeTableRow renders a single row in the nodes table (for admin view)
+// On desktop: traditional table row with all columns
+// On mobile: compact 2-line row that expands on tap
 templ NodeTableRow(node NodeData, showUser bool) {
-	<tr class={ tableRowClass(node) } title={ tableRowTitle(node) }>
-		<td>{ node.NodeID }</td>
-		<td>{ getShortName(node) }</td>
-		<td>{ getLongName(node) }</td>
-		<td>
+	<tr
+		class={ "node-row", tableRowClass(node) }
+		data-node-id={ node.NodeID }
+		onclick="toggleNodeRow(this)"
+	>
+		<!-- Desktop columns (hidden on mobile via CSS) -->
+		<td class="desktop-only">{ node.NodeID }</td>
+		<td class="desktop-only">{ getShortName(node) }</td>
+		<td class="desktop-only">{ getLongName(node) }</td>
+		<td class="desktop-only topic-cell" title={ node.RootTopic }>{ truncateTopic(node.RootTopic) }</td>
+		<td class="desktop-only">
 			if node.ProxyType != "" {
 				{ node.ProxyType }
 			} else {
 				<i>none</i>
 			}
 		</td>
-		<td>
+		<td class="desktop-only">
 			if node.IsConnected {
 				{ node.Address }
 			} else {
 				<i>disconnected</i>
 			}
 		</td>
-		<td>
+		<td class="desktop-only">
 			if node.IsDownlink {
 				Yes
 			} else {
 				No
 			}
 		</td>
-		<td>
+		<td
+			class="desktop-only gw-status-cell"
+			data-node-id={ node.NodeID }
+			data-node-name={ getLongName(node) }
+			data-is-valid={ boolStr(node.IsValidGateway) }
+			onclick="event.stopPropagation(); showValidationErrors(this)"
+			if !node.IsValidGateway && len(node.ValidationErrors) > 0 {
+				title="Click to see validation errors"
+			}
+		>
 			if node.IsValidGateway {
-				Yes
+				<span class="gw-badge gw-valid">Yes</span>
 			} else {
-				No
+				<span class="gw-badge gw-invalid">No</span>
 			}
 		</td>
 		if showUser {
-			<td>{ node.UserDisplay }</td>
+			<td class="desktop-only">{ node.UserDisplay }</td>
 		}
+		<!-- Mobile compact view (hidden on desktop) -->
+		<td class="mobile-only" colspan={ mobileColSpan(showUser) }>
+			<div class="compact-row-header">
+				<span class="node-badge-sm" style={ fmt.Sprintf("background-color: rgb(%s);", getNodeColor(node)) }>{ getShortName(node) }</span>
+				<span class="node-name-compact">{ getLongName(node) }</span>
+				<div class="status-dots">
+					<span class={ connectionDotClass(node) } title={ connectionDotTitle(node) }></span>
+					<span class={ validationDotClass(node) } title={ validationDotTitle(node) }></span>
+					<span class={ gatewayDotClass(node) } title={ gatewayDotTitle(node) }></span>
+				</div>
+				<i class="fas fa-chevron-down expand-icon"></i>
+			</div>
+			<div class="compact-row-subtext">
+				{ getIPAddress(node) } &bull; { node.NodeID }
+				if showUser {
+					 &bull; { node.UserDisplay }
+				}
+			</div>
+		</td>
+	</tr>
+	<!-- Expandable details row (mobile only) -->
+	<tr class="node-details-row" data-parent={ node.NodeID }>
+		<td colspan={ mobileColSpan(showUser) }>
+			<div class="expanded-content">
+				<div class="detail-grid">
+					<div class="detail-item">
+						<span class="detail-label">Root Topic</span>
+						<code class="detail-value topic-value">{ node.RootTopic }</code>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">Role</span>
+						<span class="detail-value">{ getNodeRole(node) }</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">Proxy</span>
+						<span class="detail-value">
+							if node.ProxyType != "" {
+								{ node.ProxyType }
+							} else {
+								None
+							}
+						</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">Downlink</span>
+						<span class="detail-value">
+							if node.IsDownlink {
+								Yes
+							} else {
+								No
+							}
+						</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">Valid Gateway</span>
+						<span class="detail-value">
+							if node.IsValidGateway {
+								Yes
+							} else {
+								No
+							}
+						</span>
+					</div>
+					<div class="detail-item">
+						<span class="detail-label">HW Model</span>
+						<span class="detail-value">{ node.HwModel }</span>
+					</div>
+				</div>
+				if len(node.ValidationErrors) > 0 {
+					<div class="validation-errors-compact">
+						<span class="error-label"><i class="fas fa-exclamation-triangle"></i> Validation Errors</span>
+						<ul>
+							for _, err := range node.ValidationErrors {
+								<li>{ err }</li>
+							}
+						</ul>
+					</div>
+				}
+			</div>
+		</td>
 	</tr>
 }
 
 // NodesTable renders a table of nodes (for admin view, SSE updates handled by vanilla JS)
 templ NodesTable(nodes []NodeData, showUser bool) {
-	<table class="table--responsive" id="nodes-table">
+	<table class="table--responsive nodes-table" id="nodes-table">
 		<thead>
 			<tr>
 				<th>Node ID</th>
 				<th colspan="2">Name</th>
-				<th>Proxy Type</th>
+				<th>Root Topic</th>
+				<th>Proxy</th>
 				<th>Address</th>
 				<th>Downlink?</th>
 				<th>Valid <abbr title="gateway">GW</abbr>?</th>
@@ -317,9 +415,9 @@ func tableRowTitle(node NodeData) string {
 
 func colSpan(showUser bool) string {
 	if showUser {
-		return "8"
+		return "10"
 	}
-	return "7"
+	return "9"
 }
 
 func otherClientsColSpan(showUser bool) string {
@@ -327,6 +425,63 @@ func otherClientsColSpan(showUser bool) string {
 		return "3"
 	}
 	return "2"
+}
+
+func mobileColSpan(showUser bool) string {
+	if showUser {
+		return "10"
+	}
+	return "9"
+}
+
+func truncateTopic(topic string) string {
+	if len(topic) > 25 {
+		return topic[:22] + "..."
+	}
+	return topic
+}
+
+// Status dot helper functions for mobile view
+func connectionDotClass(node NodeData) string {
+	if node.IsConnected {
+		return "status-dot connected"
+	}
+	return "status-dot disconnected"
+}
+
+func connectionDotTitle(node NodeData) string {
+	if node.IsConnected {
+		return "Connected"
+	}
+	return "Disconnected"
+}
+
+func validationDotClass(node NodeData) string {
+	if len(node.ValidationErrors) > 0 {
+		return "status-dot has-errors"
+	}
+	return "status-dot no-errors"
+}
+
+func validationDotTitle(node NodeData) string {
+	if len(node.ValidationErrors) > 0 {
+		return fmt.Sprintf("%d validation error(s)", len(node.ValidationErrors))
+	}
+	return "No validation errors"
+}
+
+func gatewayDotClass(node NodeData) string {
+	if node.IsValidGateway {
+		return "status-dot valid-gw"
+	}
+	return "status-dot invalid-gw"
+}
+
+func gatewayDotTitle(node NodeData) string {
+	if node.IsValidGateway {
+		return "Valid gateway"
+	}
+	return "Not a valid gateway"
 }
 
 templ proxyIcon(proxyType string) {

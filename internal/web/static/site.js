@@ -36,7 +36,14 @@ class NodeSSEManager {
       this.eventSource.addEventListener('nodes-update', (e) => {
         const target = document.getElementById('node-grid') || document.getElementById('nodes-tbody');
         if (target) {
+          // Preserve expanded state before updating
+          const expandedIds = getExpandedNodeIds();
+
           target.innerHTML = e.data;
+
+          // Restore expanded state after updating
+          restoreExpandedState(expandedIds);
+
           // Execute any inline scripts (for validation errors)
           this.executeInlineScripts(target);
         }
@@ -412,6 +419,42 @@ async function setPassword() {
 let autoRefreshTimeout = null;
 let isLoadingNodes = false;
 let nodeValidationErrors = {}; // Store validation errors by node ID
+
+/**
+ * Toggle expanded state for node rows (mobile view)
+ * @param {HTMLElement} row - The row element to toggle
+ */
+function toggleNodeRow(row) {
+  // Only toggle on mobile viewport
+  if (window.innerWidth > 768) return;
+
+  // Toggle expanded class on the row
+  row.classList.toggle('expanded');
+}
+
+/**
+ * Get IDs of currently expanded node rows
+ * @returns {string[]} Array of node IDs that are expanded
+ */
+function getExpandedNodeIds() {
+  const expanded = document.querySelectorAll('.node-row.expanded');
+  return Array.from(expanded).map(row => row.dataset.nodeId).filter(Boolean);
+}
+
+/**
+ * Restore expanded state for node rows after SSE update
+ * @param {string[]} nodeIds - Array of node IDs to expand
+ */
+function restoreExpandedState(nodeIds) {
+  if (!nodeIds || nodeIds.length === 0) return;
+
+  nodeIds.forEach(id => {
+    const row = document.querySelector(`.node-row[data-node-id="${id}"]`);
+    if (row) {
+      row.classList.add('expanded');
+    }
+  });
+}
 
 function getFilters() {
   const connectedCheckbox = document.getElementById('filter-connected');

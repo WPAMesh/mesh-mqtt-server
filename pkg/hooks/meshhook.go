@@ -194,7 +194,6 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 			h.Log.Info("client authenticated", "username", user, "client", clientID, "node", nodeDetails.GetDisplayName(), "proxy", proxyType)
 			go h.TryVerifyNode(cl.ID, false)
 		} else {
-
 			h.Log.Info("client authenticated", "username", user, "client", clientID, "proxy", proxyType)
 		}
 
@@ -506,6 +505,7 @@ func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets
 			if len(matches) > 0 {
 				cd.RootTopic = matches[1] + matches[2] // e.g., "msh/US/Gateway"
 				h.Log.Debug("set root topic from subscription", "client", cl.ID, "root_topic", cd.RootTopic)
+				go h.notifyClientChange()
 				// Trigger verification now that we have the root topic
 				go h.TryVerifyNode(cl.ID, false)
 				break

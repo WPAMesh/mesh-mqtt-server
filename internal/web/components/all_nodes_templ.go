@@ -61,7 +61,7 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" checked> <label class=\"mg-toggle mg-text-s\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" hx-get=\"/api/nodes-html?all_users=true\" hx-target=\"#nodes-tbody\" hx-swap=\"innerHTML\" hx-trigger=\"change\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label> <label class=\"mg-toggle mg-text-s\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" name=\"filter-connected\" value=\"on\" checked> <label class=\"mg-toggle mg-text-s\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" name=\"filter-gateway\" hx-get=\"/api/nodes-html?all_users=true\" hx-target=\"#nodes-tbody\" hx-swap=\"innerHTML\" hx-include=\"#filter-connected\" hx-trigger=\"change\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label> <label class=\"mg-toggle mg-text-s\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

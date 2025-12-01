@@ -526,6 +526,60 @@ function renderOtherClientsTable(clients, isAdmin) {
   `).join('');
 }
 
+/**
+ * SSE reconnection for filter changes
+ */
+function reconnectSSEWithFilters() {
+  // Find the SSE-connected element (either node-grid for My Nodes or nodes-tbody for All Nodes)
+  const nodeGrid = document.getElementById('node-grid');
+  const nodesTbody = document.getElementById('nodes-tbody');
+  const sseElement = nodeGrid || nodesTbody;
+  const otherClientsTbody = document.getElementById('other-clients-tbody');
+
+  if (!sseElement) return;
+
+  // Build SSE URL with current filter state
+  const params = new URLSearchParams();
+  const connectedCheckbox = document.getElementById('filter-connected');
+  const gatewayCheckbox = document.getElementById('filter-gateway');
+
+  // Include filter-connected: for checkbox use .checked, for hidden use hasAttribute('checked')
+  if (connectedCheckbox) {
+    const isChecked = connectedCheckbox.type === 'hidden'
+      ? connectedCheckbox.hasAttribute('checked')
+      : connectedCheckbox.checked;
+    if (isChecked) {
+      params.append('filter-connected', 'on');
+    }
+  }
+  if (gatewayCheckbox?.checked) {
+    params.append('filter-gateway', 'on');
+  }
+
+  const isAdmin = typeof window.isAdmin !== 'undefined' && window.isAdmin;
+  if (isAdmin) {
+    params.append('all_users', 'true');
+  }
+
+  const sseUrl = '/api/nodes-sse' + (params.toString() ? '?' + params.toString() : '');
+
+  // Update sse-connect attribute and trigger reconnection
+  sseElement.setAttribute('sse-connect', sseUrl);
+  if (otherClientsTbody) {
+    // For other clients, append &type=other (use ? if no existing params)
+    const separator = params.toString() ? '&' : '?';
+    otherClientsTbody.setAttribute('sse-connect', sseUrl + separator + 'type=other');
+  }
+
+  // Trigger HTMX to reconnect SSE by removing and re-adding the extension
+  if (typeof htmx !== 'undefined') {
+    htmx.process(sseElement);
+    if (otherClientsTbody) {
+      htmx.process(otherClientsTbody);
+    }
+  }
+}
+
 // Attach event listeners for filters
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize wizard if onboarding modal exists
@@ -540,9 +594,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const element = document.getElementById(id);
     if (element) {
       element.addEventListener('change', function() {
-        // Check if page has isAdmin defined
-        const isAdmin = typeof window.isAdmin !== 'undefined' ? window.isAdmin : false;
-        loadNodes(isAdmin);
+        // Reconnect SSE with new filter state
+        reconnectSSEWithFilters();
       });
     }
   });

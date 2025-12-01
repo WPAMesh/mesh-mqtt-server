@@ -8,9 +8,9 @@ import (
 )
 
 const ProtobufDirty = false
-const ProtobufSha = "38638f19f84ad886222b484d6bf5a8459aed8c7e"
-const ProtobufTimestamp = int64(1760102764)
-const ProtobufVersion = "v2.7.12"
+const ProtobufSha = "52fa252f1e01be87ad2f7ab17ceef7882b2a4a93"
+const ProtobufTimestamp = int64(1763718944)
+const ProtobufVersion = "v2.7.16"
 
 func ProtobufTime() time.Time {
 	return time.Unix(ProtobufTimestamp, 0)

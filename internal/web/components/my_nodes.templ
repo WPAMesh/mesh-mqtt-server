@@ -30,12 +30,12 @@ templ MyNodesPage(data MyNodesPageData) {
 					<div class="filter-controls">
 						<label class="mg-toggle mg-text-s">
 							Connected Only
-							<input type="checkbox" id="filter-connected" checked hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-gateway" hx-trigger="change"/>
+							<input type="checkbox" id="filter-connected" name="filter-connected" checked hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-gateway" hx-trigger="change"/>
 							<span class="mg-toggle--icon mg-icon--s"></span>
 						</label>
 						<label class="mg-toggle mg-text-s">
 							Valid Gateways Only
-							<input type="checkbox" id="filter-gateway" hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-connected" hx-trigger="change"/>
+							<input type="checkbox" id="filter-gateway" name="filter-gateway" hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-connected" hx-trigger="change"/>
 							<span class="mg-toggle--icon mg-icon--s"></span>
 						</label>
 					</div>

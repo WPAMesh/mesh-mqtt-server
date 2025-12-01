@@ -13,15 +13,17 @@ templ AllNodesPage(data AllNodesPageData) {
 				<div class="table-controls">
 					<h3>All Nodes</h3>
 					<div class="filter-controls">
-						<input type="hidden" id="filter-connected" checked/>
+						<input type="hidden" id="filter-connected" name="filter-connected" value="on" checked/>
 						<label class="mg-toggle mg-text-s">
 							Valid Gateways Only
 							<input
 								type="checkbox"
 								id="filter-gateway"
+								name="filter-gateway"
 								hx-get="/api/nodes-html?all_users=true"
 								hx-target="#nodes-tbody"
 								hx-swap="innerHTML"
+								hx-include="#filter-connected"
 								hx-trigger="change"
 							/>
 							<span class="mg-toggle--icon mg-icon--s"></span>

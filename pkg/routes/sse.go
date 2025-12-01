@@ -76,6 +76,8 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	allUsers := query.Get("all_users") == "true"
 	isAdmin := user.IsSuperuser && allUsers
+	connectedOnly := query.Get("filter-connected") == "on"
+	validGatewayOnly := query.Get("filter-gateway") == "on"
 
 	if allUsers && !user.IsSuperuser {
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -106,7 +108,7 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Helper function to send nodes update
 	sendNodesUpdate := func() error {
-		nodes, otherClients := wr.getNodesData(user, isAdmin, false, false)
+		nodes, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
 
 		// Render the template to a buffer
 		var buf bytes.Buffer

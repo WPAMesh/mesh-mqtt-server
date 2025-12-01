@@ -176,7 +176,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 		MqttConfig:     mqttConfig,
 		ShowOnboarding: showOnboarding,
 		IsSuperuser:    user.IsSuperuser,
-		SSEEndpoint:    "/api/nodes-sse",
+		SSEEndpoint:    "/api/nodes-sse?filter-connected=on",
 	}
 
 	if err := components.MyNodesPage(pageData).Render(r.Context(), w); err != nil {
@@ -203,7 +203,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		Nodes:            nodes,
 		OtherClients:     otherClients,
 		IsSuperuser:      true,
-		SSEEndpoint:      "/api/nodes-sse?all_users=true",
+		SSEEndpoint:      "/api/nodes-sse?all_users=true&filter-connected=on",
 		ForwardingStatus: wr.getForwardingStatusData(),
 	}
 

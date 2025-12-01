@@ -30,26 +30,26 @@ templ MyNodesPage(data MyNodesPageData) {
 					<div class="filter-controls">
 						<label class="toggle-label text-sm">
 							Connected Only
-							<input type="checkbox" id="filter-connected" name="filter-connected" class="toggle-checkbox" checked hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-gateway" hx-trigger="change"/>
+							<input type="checkbox" id="filter-connected" name="filter-connected" class="toggle-checkbox" checked/>
 							<span class="toggle-switch"></span>
 						</label>
 						<label class="toggle-label text-sm">
 							Valid Gateways Only
-							<input type="checkbox" id="filter-gateway" name="filter-gateway" class="toggle-checkbox" hx-get="/api/nodes-html" hx-target="#node-grid" hx-swap="innerHTML" hx-include="#filter-connected" hx-trigger="change"/>
+							<input type="checkbox" id="filter-gateway" name="filter-gateway" class="toggle-checkbox"/>
 							<span class="toggle-switch"></span>
 						</label>
 					</div>
 				</div>
 
 				<div class="node-container">
-					@NodeGrid(data.Nodes, data.SSEEndpoint)
+					@NodeGrid(data.Nodes)
 				</div>
 
 				<!-- Validation Errors Modal -->
 				@ValidationModal()
 
 				<h3 class="mt-6">Other Connections</h3>
-				@OtherClientsTable(data.OtherClients, false, data.SSEEndpoint)
+				@OtherClientsTable(data.OtherClients, false)
 			</div>
 
 			<!-- Store validation errors for JavaScript access -->

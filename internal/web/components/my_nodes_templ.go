@@ -76,11 +76,11 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"nodes-section\"><div class=\"table-controls\"><h3>Nodes</h3><div class=\"filter-controls\"><label class=\"toggle-label text-sm\">Connected Only <input type=\"checkbox\" id=\"filter-connected\" name=\"filter-connected\" class=\"toggle-checkbox\" checked hx-get=\"/api/nodes-html\" hx-target=\"#node-grid\" hx-swap=\"innerHTML\" hx-include=\"#filter-gateway\" hx-trigger=\"change\"> <span class=\"toggle-switch\"></span></label> <label class=\"toggle-label text-sm\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" name=\"filter-gateway\" class=\"toggle-checkbox\" hx-get=\"/api/nodes-html\" hx-target=\"#node-grid\" hx-swap=\"innerHTML\" hx-include=\"#filter-connected\" hx-trigger=\"change\"> <span class=\"toggle-switch\"></span></label></div></div><div class=\"node-container\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"nodes-section\"><div class=\"table-controls\"><h3>Nodes</h3><div class=\"filter-controls\"><label class=\"toggle-label text-sm\">Connected Only <input type=\"checkbox\" id=\"filter-connected\" name=\"filter-connected\" class=\"toggle-checkbox\" checked> <span class=\"toggle-switch\"></span></label> <label class=\"toggle-label text-sm\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" name=\"filter-gateway\" class=\"toggle-checkbox\"> <span class=\"toggle-switch\"></span></label></div></div><div class=\"node-container\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = NodeGrid(data.Nodes, data.SSEEndpoint).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = NodeGrid(data.Nodes).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -96,7 +96,7 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = OtherClientsTable(data.OtherClients, false, data.SSEEndpoint).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = OtherClientsTable(data.OtherClients, false).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

@@ -65,18 +65,9 @@ templ NodeCard(node NodeData) {
 	</div>
 }
 
-// NodeGrid renders a grid of node cards with htmx SSE support
-templ NodeGrid(nodes []NodeData, sseEndpoint string) {
-	<div
-		id="node-grid"
-		class="node-grid"
-		if sseEndpoint != "" {
-			hx-ext="sse"
-			sse-connect={ sseEndpoint }
-			sse-swap="nodes-update"
-			hx-swap="innerHTML"
-		}
-	>
+// NodeGrid renders a grid of node cards (SSE updates handled by vanilla JS)
+templ NodeGrid(nodes []NodeData) {
+	<div id="node-grid" class="node-grid">
 		if len(nodes) == 0 {
 			<div class="no-nodes-message"><i>No nodes found</i></div>
 		} else {
@@ -146,8 +137,8 @@ templ NodeTableRow(node NodeData, showUser bool) {
 	</tr>
 }
 
-// NodesTable renders a table of nodes (for admin view)
-templ NodesTable(nodes []NodeData, showUser bool, sseEndpoint string) {
+// NodesTable renders a table of nodes (for admin view, SSE updates handled by vanilla JS)
+templ NodesTable(nodes []NodeData, showUser bool) {
 	<table class="table--responsive" id="nodes-table">
 		<thead>
 			<tr>
@@ -162,15 +153,7 @@ templ NodesTable(nodes []NodeData, showUser bool, sseEndpoint string) {
 				}
 			</tr>
 		</thead>
-		<tbody
-			id="nodes-tbody"
-			if sseEndpoint != "" {
-				hx-ext="sse"
-				sse-connect={ sseEndpoint }
-				sse-swap="nodes-update"
-				hx-swap="innerHTML"
-			}
-		>
+		<tbody id="nodes-tbody">
 			@NodesTableContent(nodes, showUser)
 		</tbody>
 	</table>
@@ -190,9 +173,8 @@ templ NodesTableContent(nodes []NodeData, showUser bool) {
 }
 
 // OtherClientsTable renders a table of other (non-mesh) clients
-// Note: SSE updates for other-clients come from the same connection as nodes,
-// so we only need sse-swap here (the parent nodes element handles the connection)
-templ OtherClientsTable(clients []OtherClientData, showUser bool, sseEndpoint string) {
+// SSE updates handled by vanilla JS
+templ OtherClientsTable(clients []OtherClientData, showUser bool) {
 	<table class="table--responsive" id="other-clients-table">
 		<thead>
 			<tr>
@@ -203,15 +185,7 @@ templ OtherClientsTable(clients []OtherClientData, showUser bool, sseEndpoint st
 				}
 			</tr>
 		</thead>
-		<tbody
-			id="other-clients-tbody"
-			if sseEndpoint != "" {
-				hx-ext="sse"
-				sse-connect={ sseEndpoint }
-				sse-swap="other-clients-update"
-				hx-swap="innerHTML"
-			}
-		>
+		<tbody id="other-clients-tbody">
 			@OtherClientsTableContent(clients, showUser)
 		</tbody>
 	</table>

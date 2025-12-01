@@ -44,7 +44,7 @@ templ UsersPage(data UsersPageData) {
 							<th>Actions</th>
 						</tr>
 					</thead>
-					<tbody id="users-tbody" hx-get="/api/users-html" hx-trigger="load, refresh" hx-swap="innerHTML">
+					<tbody id="users-tbody">
 						<tr>
 							<td colspan="7" class="loading-message">Loading...</td>
 						</tr>
@@ -57,10 +57,6 @@ templ UsersPage(data UsersPageData) {
 
 			<script>
 				let allUsers = [];
-
-				function loadUsers() {
-					htmx.trigger('#users-tbody', 'refresh');
-				}
 
 				function editUser(userId) {
 					const user = allUsers.find(u => u.id === userId);
@@ -113,7 +109,7 @@ templ UsersPage(data UsersPageData) {
 					})
 					.then(data => {
 						closeEditModal();
-						htmx.trigger('#users-tbody', 'refresh');
+						refreshUsersTable();
 						alert('User updated successfully');
 					})
 					.catch(error => {
@@ -141,7 +137,7 @@ templ UsersPage(data UsersPageData) {
 						return response.json();
 					})
 					.then(data => {
-						htmx.trigger('#users-tbody', 'refresh');
+						refreshUsersTable();
 						alert('User deleted successfully');
 					})
 					.catch(error => {

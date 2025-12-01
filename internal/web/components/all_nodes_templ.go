@@ -61,11 +61,11 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" name=\"filter-connected\" value=\"on\" checked> <label class=\"toggle-label text-sm\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" name=\"filter-gateway\" class=\"toggle-checkbox\" hx-get=\"/api/nodes-html?all_users=true\" hx-target=\"#nodes-tbody\" hx-swap=\"innerHTML\" hx-include=\"#filter-connected\" hx-trigger=\"change\"> <span class=\"toggle-switch\"></span></label> <label class=\"toggle-label text-sm\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\" class=\"toggle-checkbox\"> <span class=\"toggle-switch\"></span></label></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" name=\"filter-connected\" value=\"on\"> <label class=\"toggle-label text-sm\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" name=\"filter-gateway\" class=\"toggle-checkbox\"> <span class=\"toggle-switch\"></span></label> <label class=\"toggle-label text-sm\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\" class=\"toggle-checkbox\"> <span class=\"toggle-switch\"></span></label></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = NodesTable(data.Nodes, true, data.SSEEndpoint).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = NodesTable(data.Nodes, true).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -73,11 +73,11 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = OtherClientsTable(data.OtherClients, true, data.SSEEndpoint).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = OtherClientsTable(data.OtherClients, true).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><script>\n\t\t\t\twindow.isAdmin = true;\n\n\t\t\t\t// Auto-refresh handler\n\t\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\t\tvar autoRefreshTimeout = null;\n\t\t\t\t\tvar autoRefreshToggle = document.getElementById('auto-refresh');\n\n\t\t\t\t\tfunction scheduleNextRefresh() {\n\t\t\t\t\t\tif (autoRefreshTimeout) {\n\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t}\n\t\t\t\t\t\tautoRefreshTimeout = setTimeout(function() {\n\t\t\t\t\t\t\thtmx.trigger('#nodes-tbody', 'refresh');\n\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t}, 15000);\n\t\t\t\t\t}\n\n\t\t\t\t\tif (autoRefreshToggle) {\n\t\t\t\t\t\tautoRefreshToggle.addEventListener('change', function() {\n\t\t\t\t\t\t\tif (!this.checked && autoRefreshTimeout) {\n\t\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t\t\tautoRefreshTimeout = null;\n\t\t\t\t\t\t\t} else if (this.checked) {\n\t\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t</script>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><script>\n\t\t\t\twindow.isAdmin = true;\n\t\t\t</script>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

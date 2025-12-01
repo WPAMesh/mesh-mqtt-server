@@ -52,7 +52,6 @@ type MyNodesPageData struct {
 	MqttConfig     *MqttConfigData
 	ShowOnboarding bool
 	IsSuperuser    bool
-	SSEEndpoint    string
 }
 
 // AllNodesPageData holds all data for the all nodes page
@@ -60,7 +59,6 @@ type AllNodesPageData struct {
 	Nodes            []NodeData
 	OtherClients     []OtherClientData
 	IsSuperuser      bool
-	SSEEndpoint      string
 	ForwardingStatus *ForwardingStatusData
 }
 

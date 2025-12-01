@@ -6,27 +6,15 @@ templ AllNodesPage(data AllNodesPageData) {
 			IsSuperuser:    data.IsSuperuser,
 			ShowSetupGuide: false,
 		}) {
-			<!-- Forwarding Status Panel -->
-			@ForwardingStatusPanel(data.ForwardingStatus)
 
 			<div id="tables-example">
 				<div class="table-controls">
 					<h3>All Nodes</h3>
 					<div class="filter-controls">
-						<input type="hidden" id="filter-connected" name="filter-connected" value="on" checked/>
+						<input type="hidden" id="filter-connected" name="filter-connected" value="on"/>
 						<label class="toggle-label text-sm">
 							Valid Gateways Only
-							<input
-								type="checkbox"
-								id="filter-gateway"
-								name="filter-gateway"
-								class="toggle-checkbox"
-								hx-get="/api/nodes-html?all_users=true"
-								hx-target="#nodes-tbody"
-								hx-swap="innerHTML"
-								hx-include="#filter-connected"
-								hx-trigger="change"
-							/>
+							<input type="checkbox" id="filter-gateway" name="filter-gateway" class="toggle-checkbox"/>
 							<span class="toggle-switch"></span>
 						</label>
 						<label class="toggle-label text-sm">
@@ -36,41 +24,17 @@ templ AllNodesPage(data AllNodesPageData) {
 						</label>
 					</div>
 				</div>
-				@NodesTable(data.Nodes, true, data.SSEEndpoint)
+				@NodesTable(data.Nodes, true)
 
 				<h3 class="mt-6">Other Connections</h3>
-				@OtherClientsTable(data.OtherClients, true, data.SSEEndpoint)
+				@OtherClientsTable(data.OtherClients, true)
+
+				<!-- Forwarding Status Panel -->
+				@ForwardingStatusPanel(data.ForwardingStatus)
 			</div>
 
 			<script>
 				window.isAdmin = true;
-
-				// Auto-refresh handler
-				document.addEventListener('DOMContentLoaded', function() {
-					var autoRefreshTimeout = null;
-					var autoRefreshToggle = document.getElementById('auto-refresh');
-
-					function scheduleNextRefresh() {
-						if (autoRefreshTimeout) {
-							clearTimeout(autoRefreshTimeout);
-						}
-						autoRefreshTimeout = setTimeout(function() {
-							htmx.trigger('#nodes-tbody', 'refresh');
-							scheduleNextRefresh();
-						}, 15000);
-					}
-
-					if (autoRefreshToggle) {
-						autoRefreshToggle.addEventListener('change', function() {
-							if (!this.checked && autoRefreshTimeout) {
-								clearTimeout(autoRefreshTimeout);
-								autoRefreshTimeout = null;
-							} else if (this.checked) {
-								scheduleNextRefresh();
-							}
-						});
-					}
-				});
 			</script>
 		}
 	}

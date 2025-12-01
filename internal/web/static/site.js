@@ -7,6 +7,130 @@
 var debounce=function(a){var e;return function(){var n=this,i=arguments;e&&window.cancelAnimationFrame(e),e=window.requestAnimationFrame(function(){a.apply(n,i)})}};
 
 /**
+ * SSE Manager - Vanilla JavaScript replacement for htmx SSE
+ */
+class NodeSSEManager {
+  constructor() {
+    this.eventSource = null;
+    this.isAdmin = false;
+    this.currentFilters = {};
+    this.reconnectDelay = 5000;
+    this.maxReconnectDelay = 30000;
+  }
+
+  connect(filters = {}) {
+    this.disconnect();
+    this.currentFilters = filters;
+
+    const params = new URLSearchParams();
+    if (filters.connectedOnly) params.append('filter-connected', 'on');
+    if (filters.gatewayOnly) params.append('filter-gateway', 'on');
+    if (this.isAdmin) params.append('all_users', 'true');
+
+    const url = '/api/nodes-sse' + (params.toString() ? '?' + params.toString() : '');
+
+    try {
+      this.eventSource = new EventSource(url);
+      this.reconnectDelay = 5000; // Reset delay on successful connection attempt
+
+      this.eventSource.addEventListener('nodes-update', (e) => {
+        const target = document.getElementById('node-grid') || document.getElementById('nodes-tbody');
+        if (target) {
+          target.innerHTML = e.data;
+          // Execute any inline scripts (for validation errors)
+          this.executeInlineScripts(target);
+        }
+      });
+
+      this.eventSource.addEventListener('other-clients-update', (e) => {
+        const target = document.getElementById('other-clients-tbody');
+        if (target) {
+          target.innerHTML = e.data;
+        }
+      });
+
+      this.eventSource.onerror = (e) => {
+        console.warn('SSE connection error, will reconnect...');
+        this.eventSource.close();
+        // Exponential backoff for reconnection
+        setTimeout(() => this.connect(this.currentFilters), this.reconnectDelay);
+        this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, this.maxReconnectDelay);
+      };
+
+      this.eventSource.onopen = () => {
+        console.log('SSE connection established');
+        this.reconnectDelay = 5000; // Reset on successful connection
+      };
+    } catch (error) {
+      console.error('Failed to create EventSource:', error);
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+
+  executeInlineScripts(container) {
+    // Find and execute any inline scripts (for validation errors data)
+    container.querySelectorAll('script').forEach(script => {
+      try {
+        eval(script.textContent);
+      } catch (e) {
+        console.error('Error executing inline script:', e);
+      }
+    });
+  }
+}
+
+// Global SSE manager instance
+let sseManager = null;
+
+function initSSE() {
+  // Only initialize if we have SSE targets on the page
+  const hasNodeGrid = document.getElementById('node-grid') !== null;
+  const hasNodesTable = document.getElementById('nodes-tbody') !== null;
+
+  if (!hasNodeGrid && !hasNodesTable) {
+    return; // No SSE targets on this page
+  }
+
+  sseManager = new NodeSSEManager();
+  sseManager.isAdmin = typeof window.isAdmin !== 'undefined' && window.isAdmin;
+
+  // Get initial filter state
+  const connectedCheckbox = document.getElementById('filter-connected');
+  const gatewayCheckbox = document.getElementById('filter-gateway');
+
+  const filters = {
+    connectedOnly: connectedCheckbox ?
+      (connectedCheckbox.type === 'hidden' ? connectedCheckbox.value === 'on' : connectedCheckbox.checked) :
+      false,
+    gatewayOnly: gatewayCheckbox?.checked || false
+  };
+
+  sseManager.connect(filters);
+}
+
+function reconnectSSEWithCurrentFilters() {
+  if (!sseManager) return;
+
+  const connectedCheckbox = document.getElementById('filter-connected');
+  const gatewayCheckbox = document.getElementById('filter-gateway');
+
+  const filters = {
+    connectedOnly: connectedCheckbox ?
+      (connectedCheckbox.type === 'hidden' ? connectedCheckbox.value === 'on' : connectedCheckbox.checked) :
+      false,
+    gatewayOnly: gatewayCheckbox?.checked || false
+  };
+
+  sseManager.connect(filters);
+}
+
+/**
  * Main code section
  */
 
@@ -526,60 +650,7 @@ function renderOtherClientsTable(clients, isAdmin) {
   `).join('');
 }
 
-/**
- * SSE reconnection for filter changes
- */
-function reconnectSSEWithFilters() {
-  // Find the SSE-connected element (either node-grid for My Nodes or nodes-tbody for All Nodes)
-  const nodeGrid = document.getElementById('node-grid');
-  const nodesTbody = document.getElementById('nodes-tbody');
-  const sseElement = nodeGrid || nodesTbody;
-  const otherClientsTbody = document.getElementById('other-clients-tbody');
-
-  if (!sseElement) return;
-
-  // Build SSE URL with current filter state
-  const params = new URLSearchParams();
-  const connectedCheckbox = document.getElementById('filter-connected');
-  const gatewayCheckbox = document.getElementById('filter-gateway');
-
-  // Include filter-connected: for checkbox use .checked, for hidden use hasAttribute('checked')
-  if (connectedCheckbox) {
-    const isChecked = connectedCheckbox.type === 'hidden'
-      ? connectedCheckbox.hasAttribute('checked')
-      : connectedCheckbox.checked;
-    if (isChecked) {
-      params.append('filter-connected', 'on');
-    }
-  }
-  if (gatewayCheckbox?.checked) {
-    params.append('filter-gateway', 'on');
-  }
-
-  const isAdmin = typeof window.isAdmin !== 'undefined' && window.isAdmin;
-  if (isAdmin) {
-    params.append('all_users', 'true');
-  }
-
-  const sseUrl = '/api/nodes-sse' + (params.toString() ? '?' + params.toString() : '');
-
-  // Update sse-connect attribute and trigger reconnection
-  sseElement.setAttribute('sse-connect', sseUrl);
-  if (otherClientsTbody) {
-    // Other clients use the same SSE endpoint (it sends both event types)
-    otherClientsTbody.setAttribute('sse-connect', sseUrl);
-  }
-
-  // Trigger HTMX to reconnect SSE by removing and re-adding the extension
-  if (typeof htmx !== 'undefined') {
-    htmx.process(sseElement);
-    if (otherClientsTbody) {
-      htmx.process(otherClientsTbody);
-    }
-  }
-}
-
-// Attach event listeners for filters
+// Attach event listeners and initialize SSE
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize wizard if onboarding modal exists
   const onboardingModal = document.getElementById('onboarding-modal');
@@ -587,31 +658,57 @@ document.addEventListener('DOMContentLoaded', function() {
     updateWizardUI();
   }
 
-  const filterControls = ['filter-connected', 'filter-gateway'];
+  // Initialize SSE for node/client updates
+  initSSE();
 
+  // Filter change handlers - reconnect SSE with new filters
+  const filterControls = ['filter-connected', 'filter-gateway'];
   filterControls.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
       element.addEventListener('change', function() {
-        // Reconnect SSE with new filter state
-        reconnectSSEWithFilters();
+        reconnectSSEWithCurrentFilters();
       });
     }
   });
 
-  // Auto-refresh toggle (admin only)
+  // Auto-refresh toggle (admin only) - kept for manual refresh option
   const autoRefreshToggle = document.getElementById('auto-refresh');
   if (autoRefreshToggle) {
     autoRefreshToggle.addEventListener('change', function() {
       if (!this.checked && autoRefreshTimeout) {
-        // Stop auto-refresh
         clearTimeout(autoRefreshTimeout);
         autoRefreshTimeout = null;
       } else if (this.checked) {
-        // Start auto-refresh
         const isAdmin = typeof window.isAdmin !== 'undefined' ? window.isAdmin : false;
         scheduleNextRefresh(isAdmin);
       }
     });
   }
+
+  // Initialize users table if present (replaces htmx hx-trigger="load")
+  initUsersTable();
 });
+
+/**
+ * Users table initialization (vanilla JS replacement for htmx)
+ */
+async function initUsersTable() {
+  const usersTbody = document.getElementById('users-tbody');
+  if (!usersTbody) return;
+
+  try {
+    const response = await fetch('/api/users-html');
+    if (response.ok) {
+      usersTbody.innerHTML = await response.text();
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+    usersTbody.innerHTML = '<tr><td colspan="6" class="error-message">Error loading users</td></tr>';
+  }
+}
+
+// Function to refresh users table (called after edits/deletes)
+async function refreshUsersTable() {
+  await initUsersTable();
+}

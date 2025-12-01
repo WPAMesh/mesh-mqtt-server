@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"sort"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -283,29 +282,9 @@ type SetPasswordResponse struct {
 	Message string `json:"message"`
 }
 
-type NodeResponse struct {
-	NodeID           string   `json:"node_id"`
-	ShortName        string   `json:"short_name"`
-	LongName         string   `json:"long_name"`
-	NodeColor        string   `json:"node_color,omitempty"`
-	ProxyType        string   `json:"proxy_type"`
-	Address          string   `json:"address"`
-	RootTopic        string   `json:"root_topic"`
-	NodeRole         string   `json:"node_role,omitempty"`
-	HwModel          string   `json:"hw_model,omitempty"`
-	LastSeen         *string  `json:"last_seen,omitempty"`
-	IsDownlink       bool     `json:"is_downlink"`
-	IsValidGateway   bool     `json:"is_valid_gateway"`
-	IsConnected      bool     `json:"is_connected"`
-	IsMeshDevice     bool     `json:"is_mesh_device"`
-	ClientID         string   `json:"client_id"`
-	UserDisplay      string   `json:"user_display,omitempty"`
-	ValidationErrors []string `json:"validation_errors,omitempty"`
-}
-
 type NodesResponse struct {
-	Nodes        []NodeResponse `json:"nodes"`
-	OtherClients []NodeResponse `json:"other_clients"`
+	Nodes        []components.NodeData        `json:"nodes"`
+	OtherClients []components.OtherClientData `json:"other_clients"`
 }
 
 func (wr *WebRouter) setMqttPassword(w http.ResponseWriter, r *http.Request) {
@@ -377,8 +356,8 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 		clients = wr.MqttServer.GetUserClients(user.UserName)
 	}
 
-	nodes := []NodeResponse{}
-	otherClients := []NodeResponse{}
+	nodes := []components.NodeData{}
+	otherClients := []components.OtherClientData{}
 
 	knownNodes := []uint32{}
 	for _, c := range clients {
@@ -394,16 +373,12 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 			userDisplay = wr.getUserDisplay(c.MqttUserName)
 		}
 
-		nr := NodeResponse{
-			ClientID:     c.ClientID,
-			Address:      ipAddr,
-			IsConnected:  c.Address != "",
-			IsMeshDevice: false,
-			UserDisplay:  userDisplay,
-		}
-
 		if !c.IsMeshDevice() {
-			otherClients = append(otherClients, nr)
+			otherClients = append(otherClients, components.OtherClientData{
+				ClientID:    c.ClientID,
+				Address:     ipAddr,
+				UserDisplay: userDisplay,
+			})
 			continue
 		}
 
@@ -428,19 +403,24 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		nr.NodeID = nodeID
-		nr.ShortName = c.GetShortName()
-		nr.LongName = c.GetLongName()
-		nr.ProxyType = c.ProxyType
-		nr.RootTopic = c.RootTopic
-		nr.NodeRole = nodeRole
-		nr.HwModel = hwModel
-		nr.LastSeen = lastSeen
-		nr.IsDownlink = c.IsDownlinkVerified()
-		nr.IsValidGateway = c.IsValidGateway()
-		nr.IsMeshDevice = true
-		nr.ClientID = c.ClientID
-		nr.ValidationErrors = c.GetValidationErrors()
+		nr := components.NodeData{
+			NodeID:           nodeID,
+			ShortName:        c.GetShortName(),
+			LongName:         c.GetLongName(),
+			ProxyType:        c.ProxyType,
+			Address:          ipAddr,
+			RootTopic:        c.RootTopic,
+			NodeRole:         nodeRole,
+			HwModel:          hwModel,
+			LastSeen:         lastSeen,
+			IsDownlink:       c.IsDownlinkVerified(),
+			IsValidGateway:   c.IsValidGateway(),
+			IsConnected:      c.Address != "",
+			IsMeshDevice:     true,
+			ClientID:         c.ClientID,
+			UserDisplay:      userDisplay,
+			ValidationErrors: c.GetValidationErrors(),
+		}
 
 		// Add node color if node details are available
 		if c.NodeDetails != nil {
@@ -468,7 +448,7 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 					lastSeen = &lastSeenStr
 				}
 
-				nodes = append(nodes, NodeResponse{
+				nodes = append(nodes, components.NodeData{
 					NodeID:         n.NodeID.String(),
 					ShortName:      n.GetSafeShortName(),
 					LongName:       n.GetSafeLongName(),
@@ -487,24 +467,9 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Sort nodes by NodeID
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].NodeID == "" && nodes[j].NodeID != "" {
-			return true
-		}
-		if nodes[i].NodeID != "" && nodes[j].NodeID == "" {
-			return false
-		}
-		if nodes[i].NodeID != "" && nodes[j].NodeID != "" {
-			return nodes[i].NodeID < nodes[j].NodeID
-		}
-		return nodes[i].ClientID < nodes[j].ClientID
-	})
-
-	// Sort other clients by ClientID
-	sort.Slice(otherClients, func(i, j int) bool {
-		return otherClients[i].ClientID < otherClients[j].ClientID
-	})
+	// Sort nodes and clients for consistent display order
+	components.SortNodes(nodes)
+	components.SortOtherClients(otherClients)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(NodesResponse{

@@ -1,31 +1,31 @@
 package components
 
-// NodeData represents a node for display
+// NodeData represents a node for display and API responses
 type NodeData struct {
-	NodeID           string
-	ShortName        string
-	LongName         string
-	NodeColor        string
-	ProxyType        string
-	Address          string
-	RootTopic        string
-	NodeRole         string
-	HwModel          string
-	LastSeen         *string
-	IsDownlink       bool
-	IsValidGateway   bool
-	IsConnected      bool
-	IsMeshDevice     bool
-	ClientID         string
-	UserDisplay      string
-	ValidationErrors []string
+	NodeID           string   `json:"node_id"`
+	ShortName        string   `json:"short_name"`
+	LongName         string   `json:"long_name"`
+	NodeColor        string   `json:"node_color,omitempty"`
+	ProxyType        string   `json:"proxy_type"`
+	Address          string   `json:"address"`
+	RootTopic        string   `json:"root_topic"`
+	NodeRole         string   `json:"node_role,omitempty"`
+	HwModel          string   `json:"hw_model,omitempty"`
+	LastSeen         *string  `json:"last_seen,omitempty"`
+	IsDownlink       bool     `json:"is_downlink"`
+	IsValidGateway   bool     `json:"is_valid_gateway"`
+	IsConnected      bool     `json:"is_connected"`
+	IsMeshDevice     bool     `json:"is_mesh_device"`
+	ClientID         string   `json:"client_id"`
+	UserDisplay      string   `json:"user_display,omitempty"`
+	ValidationErrors []string `json:"validation_errors,omitempty"`
 }
 
-// OtherClientData represents a non-mesh client for display
+// OtherClientData represents a non-mesh client for display and API responses
 type OtherClientData struct {
-	ClientID    string
-	Address     string
-	UserDisplay string
+	ClientID    string `json:"client_id"`
+	Address     string `json:"address"`
+	UserDisplay string `json:"user_display,omitempty"`
 }
 
 // MqttConfigData holds MQTT configuration for display

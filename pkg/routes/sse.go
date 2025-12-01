@@ -309,6 +309,10 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 		}
 	}
 
+	// Sort nodes and clients for consistent display order
+	components.SortNodes(nodes)
+	components.SortOtherClients(otherClients)
+
 	return nodes, otherClients
 }
 

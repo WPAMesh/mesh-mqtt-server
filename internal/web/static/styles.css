@@ -1,4 +1,7 @@
 :root {
+  /* Needed for light-dark() to work */
+  color-scheme: light dark;
+
   /* Base colors */
   --mg-color-dark: hsl(255deg 0% 15%);
   --mg-color-light: hsl(255deg 0% 95%);
@@ -242,6 +245,7 @@ html * {
 .logo-view a > span {
   vertical-align: middle;
   font-size: 4rem;
+  color: var(--mg-color-green);
 }
 
 .burger {

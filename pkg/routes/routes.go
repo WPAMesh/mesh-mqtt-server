@@ -15,6 +15,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/internal/web/components"
 	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
+	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	"golang.org/x/oauth2"
@@ -35,6 +36,7 @@ type WebRouter struct {
 	sessionStore   *sessions.CookieStore
 	MqttServer     models.MeshMqttServer
 	ClientNotifier *ClientNotifier
+	ForwardingHook *hooks.ForwardingHook
 }
 
 func (wr *WebRouter) getSession(r *http.Request) (*sessions.Session, error) {
@@ -117,6 +119,7 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/api/users-html", wr.usersHTML).Methods("GET")
 	myRouter.HandleFunc("/api/users/{id}", wr.updateUser).Methods("PUT")
 	myRouter.HandleFunc("/api/users/{id}", wr.deleteUser).Methods("DELETE")
+	myRouter.HandleFunc("/api/forwarding/status", wr.getForwardingStatus).Methods("GET")
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
 	myRouter.HandleFunc("/auth/discord/callback", wr.discordCallbackHandler)
@@ -197,10 +200,11 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 	nodes, otherClients := wr.getNodesData(user, true, true, false)
 
 	pageData := components.AllNodesPageData{
-		Nodes:        nodes,
-		OtherClients: otherClients,
-		IsSuperuser:  true,
-		SSEEndpoint:  "/api/nodes-sse?all_users=true",
+		Nodes:            nodes,
+		OtherClients:     otherClients,
+		IsSuperuser:      true,
+		SSEEndpoint:      "/api/nodes-sse?all_users=true",
+		ForwardingStatus: wr.getForwardingStatusData(),
 	}
 
 	if err := components.AllNodesPage(pageData).Render(r.Context(), w); err != nil {
@@ -693,4 +697,68 @@ func (wr *WebRouter) deleteUser(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "User deleted successfully",
 	})
+}
+
+// ForwardingStatusResponse is the API response for forwarding status
+type ForwardingStatusResponse struct {
+	Enabled bool                     `json:"enabled"`
+	Targets []hooks.ForwardingStatus `json:"targets"`
+}
+
+// getForwardingStatusData returns forwarding status data for template rendering
+func (wr *WebRouter) getForwardingStatusData() *components.ForwardingStatusData {
+	if wr.ForwardingHook == nil || !wr.ForwardingHook.IsEnabled() {
+		return nil
+	}
+
+	statuses := wr.ForwardingHook.GetStatus()
+	targets := make([]components.ForwardingTargetData, len(statuses))
+
+	for i, s := range statuses {
+		target := components.ForwardingTargetData{
+			Name:      s.Name,
+			Address:   s.Address,
+			Connected: s.Connected,
+			LastError: s.LastError,
+			Topics:    s.Topics,
+		}
+		if s.ConnectedAt != nil {
+			target.ConnectedAt = s.ConnectedAt.Format("2006-01-02 15:04:05")
+		}
+		if s.LastErrorTime != nil {
+			target.LastErrorTime = s.LastErrorTime.Format("2006-01-02 15:04:05")
+		}
+		targets[i] = target
+	}
+
+	return &components.ForwardingStatusData{
+		Enabled: true,
+		Targets: targets,
+	}
+}
+
+func (wr *WebRouter) getForwardingStatus(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	response := ForwardingStatusResponse{
+		Enabled: false,
+		Targets: []hooks.ForwardingStatus{},
+	}
+
+	if wr.ForwardingHook != nil && wr.ForwardingHook.IsEnabled() {
+		response.Enabled = true
+		response.Targets = wr.ForwardingHook.GetStatus()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

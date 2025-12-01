@@ -53,7 +53,15 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" checked> <label class=\"mg-toggle mg-text-s\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" hx-get=\"/api/nodes-html?all_users=true\" hx-target=\"#nodes-tbody\" hx-swap=\"innerHTML\" hx-trigger=\"change\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label> <label class=\"mg-toggle mg-text-s\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!-- Forwarding Status Panel --> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = ForwardingStatusPanel(data.ForwardingStatus).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"tables-example\"><div class=\"table-controls\"><h3>All Nodes</h3><div class=\"filter-controls\"><input type=\"hidden\" id=\"filter-connected\" checked> <label class=\"mg-toggle mg-text-s\">Valid Gateways Only <input type=\"checkbox\" id=\"filter-gateway\" hx-get=\"/api/nodes-html?all_users=true\" hx-target=\"#nodes-tbody\" hx-swap=\"innerHTML\" hx-trigger=\"change\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label> <label class=\"mg-toggle mg-text-s\">Auto-Refresh (15s) <input type=\"checkbox\" id=\"auto-refresh\"> <span class=\"mg-toggle--icon mg-icon--s\"></span></label></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -61,7 +69,7 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<h3>Other Connections</h3>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<h3>Other Connections</h3>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -69,7 +77,7 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><script>\n\t\t\t\twindow.isAdmin = true;\n\n\t\t\t\t// Auto-refresh handler\n\t\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\t\tvar autoRefreshTimeout = null;\n\t\t\t\t\tvar autoRefreshToggle = document.getElementById('auto-refresh');\n\n\t\t\t\t\tfunction scheduleNextRefresh() {\n\t\t\t\t\t\tif (autoRefreshTimeout) {\n\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t}\n\t\t\t\t\t\tautoRefreshTimeout = setTimeout(function() {\n\t\t\t\t\t\t\thtmx.trigger('#nodes-tbody', 'refresh');\n\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t}, 15000);\n\t\t\t\t\t}\n\n\t\t\t\t\tif (autoRefreshToggle) {\n\t\t\t\t\t\tautoRefreshToggle.addEventListener('change', function() {\n\t\t\t\t\t\t\tif (!this.checked && autoRefreshTimeout) {\n\t\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t\t\tautoRefreshTimeout = null;\n\t\t\t\t\t\t\t} else if (this.checked) {\n\t\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t</script>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><script>\n\t\t\t\twindow.isAdmin = true;\n\n\t\t\t\t// Auto-refresh handler\n\t\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\t\tvar autoRefreshTimeout = null;\n\t\t\t\t\tvar autoRefreshToggle = document.getElementById('auto-refresh');\n\n\t\t\t\t\tfunction scheduleNextRefresh() {\n\t\t\t\t\t\tif (autoRefreshTimeout) {\n\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t}\n\t\t\t\t\t\tautoRefreshTimeout = setTimeout(function() {\n\t\t\t\t\t\t\thtmx.trigger('#nodes-tbody', 'refresh');\n\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t}, 15000);\n\t\t\t\t\t}\n\n\t\t\t\t\tif (autoRefreshToggle) {\n\t\t\t\t\t\tautoRefreshToggle.addEventListener('change', function() {\n\t\t\t\t\t\t\tif (!this.checked && autoRefreshTimeout) {\n\t\t\t\t\t\t\t\tclearTimeout(autoRefreshTimeout);\n\t\t\t\t\t\t\t\tautoRefreshTimeout = null;\n\t\t\t\t\t\t\t} else if (this.checked) {\n\t\t\t\t\t\t\t\tscheduleNextRefresh();\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t</script>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

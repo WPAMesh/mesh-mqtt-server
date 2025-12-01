@@ -6,6 +6,9 @@ templ AllNodesPage(data AllNodesPageData) {
 			IsSuperuser:    data.IsSuperuser,
 			ShowSetupGuide: false,
 		}) {
+			<!-- Forwarding Status Panel -->
+			@ForwardingStatusPanel(data.ForwardingStatus)
+
 			<div id="tables-example">
 				<div class="table-controls">
 					<h3>All Nodes</h3>

@@ -13,6 +13,7 @@ type Configuration struct {
 		Discord oauth2.Config
 	}
 	MeshSettings MeshSettings
+	Forwarding   ForwardingSettings
 	Database     struct {
 		User     string
 		Password string
@@ -40,4 +41,32 @@ type MeshChannelDef struct {
 	Name   string
 	Key    string
 	Export bool
+}
+
+// ForwardingSettings configures MQTT packet forwarding to external servers
+type ForwardingSettings struct {
+	Enabled bool
+	Targets []ForwardingTarget
+}
+
+// ForwardingTarget defines a single external MQTT server to forward packets to
+type ForwardingTarget struct {
+	// Name is a friendly identifier for this target (used in logs and status)
+	Name string
+	// Address is the MQTT broker address (e.g., "mqtt.example.com:1883")
+	Address string
+	// Username for MQTT authentication (optional)
+	Username string
+	// Password for MQTT authentication (optional)
+	Password string
+	// UseTLS enables TLS connection to the broker
+	UseTLS bool
+	// Topics is a list of topic patterns to forward (e.g., ["msh/#"])
+	Topics []string
+	// TopicRewrites defines topic transformation rules
+	// Key is the pattern to match, value is the replacement
+	// Example: {"msh/US": "msh/forwarded/US"} rewrites "msh/US/..." to "msh/forwarded/US/..."
+	TopicRewrites map[string]string
+	// ClientID is the MQTT client ID to use (auto-generated if empty)
+	ClientID string
 }

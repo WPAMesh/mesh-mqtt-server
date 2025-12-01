@@ -57,13 +57,31 @@ type MyNodesPageData struct {
 
 // AllNodesPageData holds all data for the all nodes page
 type AllNodesPageData struct {
-	Nodes        []NodeData
-	OtherClients []OtherClientData
-	IsSuperuser  bool
-	SSEEndpoint  string
+	Nodes            []NodeData
+	OtherClients     []OtherClientData
+	IsSuperuser      bool
+	SSEEndpoint      string
+	ForwardingStatus *ForwardingStatusData
 }
 
 // UsersPageData holds data for the users page
 type UsersPageData struct {
 	IsSuperuser bool
+}
+
+// ForwardingTargetData holds forwarding target status for display
+type ForwardingTargetData struct {
+	Name          string
+	Address       string
+	Connected     bool
+	LastError     string
+	LastErrorTime string
+	ConnectedAt   string
+	Topics        []string
+}
+
+// ForwardingStatusData holds forwarding status for display
+type ForwardingStatusData struct {
+	Enabled bool
+	Targets []ForwardingTargetData
 }

@@ -135,6 +135,19 @@ func main() {
 	// Set the MQTT server on the router
 	router.MqttServer = meshHook
 
+	// Add forwarding hook if enabled
+	var forwardingHook *hooks.ForwardingHook
+	if config.Forwarding.Enabled {
+		forwardingHook = new(hooks.ForwardingHook)
+		err = server.AddHook(forwardingHook, &hooks.ForwardingHookOptions{
+			Settings: config.Forwarding,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		router.ForwardingHook = forwardingHook
+	}
+
 	// Start the server
 	go func() {
 		err := server.Serve()
@@ -152,6 +165,12 @@ func main() {
 
 	<-done
 	server.Log.Warn("caught signal, stopping...")
+
+	// Stop forwarding hook gracefully
+	if forwardingHook != nil {
+		_ = forwardingHook.Stop()
+	}
+
 	_ = server.Close()
 	server.Log.Info("main.go finished")
 }

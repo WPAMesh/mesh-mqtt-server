@@ -5,28 +5,84 @@ import "strings"
 // ForwardingStatusPanel renders the forwarding status section
 templ ForwardingStatusPanel(status *ForwardingStatusData) {
 	if status != nil && status.Enabled {
-		<div class="forwarding-panel mb-8">
+		<div class="forwarding-panel mt-6">
 			<h3>
 				<i class="fas fa-share-alt"></i>
 				Packet Forwarding
 			</h3>
-			<div class="forwarding-targets">
-				for _, target := range status.Targets {
-					@ForwardingTargetCard(target)
-				}
+			<!-- Desktop: Table view -->
+			<table class="table--responsive forwarding-table" id="forwarding-table">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Address</th>
+						<th>Topics</th>
+						<th>Status</th>
+						<th>Details</th>
+					</tr>
+				</thead>
+				<tbody>
+					if len(status.Targets) == 0 {
+						<tr>
+							<td colspan="5"><i>No forwarding targets configured</i></td>
+						</tr>
+					} else {
+						for _, target := range status.Targets {
+							@ForwardingTableRow(target)
+						}
+					}
+				</tbody>
+			</table>
+			<!-- Mobile: Card view -->
+			<div class="forwarding-cards-mobile">
 				if len(status.Targets) == 0 {
 					<div class="no-targets-message">
 						<i>No forwarding targets configured</i>
 					</div>
+				} else {
+					for _, target := range status.Targets {
+						@ForwardingTargetCard(target)
+					}
 				}
 			</div>
 		</div>
 	}
 }
 
-// ForwardingTargetCard renders a single forwarding target status card
+// ForwardingTableRow renders a single forwarding target as a table row (desktop)
+templ ForwardingTableRow(target ForwardingTargetData) {
+	<tr class={ templ.KV("has-errors", !target.Connected && target.LastError != "") }>
+		<td>
+			<div class="target-name-cell">
+				<span class={ "status-indicator", templ.KV("status-connected", target.Connected), templ.KV("status-disconnected", !target.Connected) }></span>
+				<strong>{ target.Name }</strong>
+			</div>
+		</td>
+		<td><code>{ target.Address }</code></td>
+		<td class="topics-cell">{ formatTopics(target.Topics) }</td>
+		<td>
+			<span class={ "target-status-badge", templ.KV("badge-connected", target.Connected), templ.KV("badge-disconnected", !target.Connected) }>
+				if target.Connected {
+					Connected
+				} else {
+					Disconnected
+				}
+			</span>
+		</td>
+		<td class="details-cell">
+			if target.Connected && target.ConnectedAt != "" {
+				Since { target.ConnectedAt }
+			}
+			if !target.Connected && target.LastError != "" {
+				<span class="error-text" title={ target.LastError }>{ truncateError(target.LastError) }</span>
+			}
+		</td>
+	</tr>
+}
+
+// ForwardingTargetCard renders a single forwarding target status card (mobile)
 templ ForwardingTargetCard(target ForwardingTargetData) {
-	<div class={ "forwarding-target-card", "border", "rounded-2xl", templ.KV("connected", target.Connected), templ.KV("disconnected", !target.Connected) }>
+	<div class={ "forwarding-target-card", templ.KV("connected", target.Connected), templ.KV("disconnected", !target.Connected) }>
 		<div class="target-header">
 			<div class="target-name">
 				<span class={ "status-indicator", templ.KV("status-connected", target.Connected), templ.KV("status-disconnected", !target.Connected) }></span>
@@ -76,4 +132,11 @@ func formatTopics(topics []string) string {
 		return "none"
 	}
 	return strings.Join(topics, ", ")
+}
+
+func truncateError(err string) string {
+	if len(err) > 40 {
+		return err[:37] + "..."
+	}
+	return err
 }

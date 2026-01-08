@@ -330,29 +330,37 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 	}
 
 	if !cd.IsMeshDevice() {
-		// Non-mesh devices can write to non-gateway topics, but gateway topics require superuser
+		// Non-mesh devices can write to mesh topics, but doing so marks them as
+		// a publisher and blocks all future reads. This prevents unauthorized
+		// bridges from acting as gateways.
 		if write {
-			isGatewayTopic := gatewayTopicRegex.MatchString(topic) || gatewaySubRegex.MatchString(topic)
-			if isGatewayTopic && !isSU {
-				h.Log.Warn("ACL denied: non-mesh device attempting write to gateway topic",
+			if !cd.HasPublished {
+				cd.HasPublished = true
+				h.Log.Info("non-mesh device published to mesh topic, blocking future reads",
 					"client", cl.ID,
 					"user", cd.MqttUserName,
 					"topic", topic)
-				return false
 			}
-			// Allow writes to non-gateway topics (or superuser writes to any topic)
 			return true
+		}
+
+		// Block all mesh topic reads for non-mesh devices that have published
+		if cd.HasPublished {
+			h.Log.Debug("blocking read for non-mesh publisher",
+				"client", cl.ID,
+				"topic", topic)
+			return false
 		}
 
 		// For reads on gateway topics, block if the publisher is an unvalidated gateway
 		// This prevents mapping software (including superusers) from receiving duplicate messages
 		if h.shouldBlockUnvalidatedGatewayMessageUnsafe(topic) {
-			h.Log.Debug("Blocking non-mesh device from unvalidated gateway message",
+			h.Log.Debug("blocking non-mesh device from unvalidated gateway message",
 				"reader", cl.ID, "is_superuser", isSU, "topic", topic)
 			return false
 		}
 
-		// Allow reads for all other topics
+		// Allow reads for all other topics (mapping software that doesn't publish)
 		return true
 	}
 
@@ -617,17 +625,29 @@ func (h *MeshtasticHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
 func (h *MeshtasticHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Debug("published to client", "client", cl.ID)
 
-	// If this was a gateway topic from an unvalidated gateway, also publish to the non-gateway topic for mapping
+	// If this was a gateway topic from an unvalidated gateway or non-mesh device,
+	// also publish to the non-gateway topic for mapping software
 	if strings.HasPrefix(pk.TopicName, "msh/") {
 		h.clientLock.RLock()
 		cd, ok := h.knownClients[cl.ID]
 		h.clientLock.RUnlock()
 
-		if ok && cd.IsMeshDevice() && !cd.IsValidGateway() {
+		if !ok {
+			return
+		}
+
+		// Redirect if: non-mesh device OR mesh device that's not a valid gateway
+		shouldRedirect := !cd.IsMeshDevice() || !cd.IsValidGateway()
+
+		if shouldRedirect {
 			matches := gatewayTopicRegex.FindStringSubmatch(pk.TopicName)
 			if len(matches) > 0 {
 				redirectedTopic := gatewayTopicRegex.ReplaceAllString(pk.TopicName, gatewayReplacement)
-				h.Log.Debug("publishing to redirected topic for mapping", "client", cl.ID, "original", pk.TopicName, "redirected", redirectedTopic)
+				h.Log.Debug("publishing to redirected topic for mapping",
+					"client", cl.ID,
+					"is_mesh_device", cd.IsMeshDevice(),
+					"original", pk.TopicName,
+					"redirected", redirectedTopic)
 
 				// Publish to the redirected topic via the inline client asynchronously
 				// This ensures mapping works while the original gateway topic message is delivered to subscribers

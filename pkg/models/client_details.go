@@ -39,6 +39,7 @@ type ClientDetails struct {
 	VerifyChannel  string // Channel used for the current verification request
 	InvalidPackets int
 	ValidGWChecker func() bool
+	HasPublished   bool // True if this non-mesh client has published to mesh topics
 }
 
 type NodeInfo struct {

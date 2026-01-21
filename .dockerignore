@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+.gitmodules
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Claude Code
+.claude
+
+# Docker files (not needed in image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# Local config and binaries
+config.yml
+mesh-mqtt-server
+__debug_bin*
+
+# Test artifacts
+*.test
+coverage.out

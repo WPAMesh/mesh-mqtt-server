@@ -27,19 +27,20 @@ type MeshMqttServer interface {
 
 type ClientDetails struct {
 	sync.RWMutex
-	MqttUserName   string
-	UserID         int
-	ClientID       string
-	NodeDetails    *NodeInfo
-	ProxyType      string
-	Address        string
-	RootTopic      string
-	VerifyPacketID uint32
-	VerifyReqTime  *time.Time
-	VerifyChannel  string // Channel used for the current verification request
-	InvalidPackets int
-	ValidGWChecker func() bool
-	HasPublished   bool // True if this non-mesh client has published to mesh topics
+	MqttUserName      string
+	UserID            int
+	ClientID          string
+	NodeDetails       *NodeInfo
+	ProxyType         string
+	Address           string
+	RootTopic         string
+	VerifyPacketID    uint32
+	VerifyReqTime     *time.Time
+	VerifyChannel     string // Channel used for the current verification request
+	InvalidPackets    int
+	ValidGWChecker    func() bool
+	HasPublished      bool // True if this non-mesh client has published to mesh topics
+	HasMissingOkToMqtt bool // True if we detected packets from this gateway without OkToMQTT bit
 }
 
 type NodeInfo struct {
@@ -149,10 +150,9 @@ func (c *ClientDetails) IsValidGateway() bool {
 		extValid = c.ValidGWChecker()
 	}
 	return extValid && c.NodeDetails != nil && c.ProxyType == "" && c.IsDownlinkVerified() &&
-		c.IsUsingGatewayTopic() && c.NodeDetails.NodeRole != "" &&
+		c.IsUsingGatewayTopic() && !c.HasMissingOkToMqtt && c.NodeDetails.NodeRole != "" &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_CLIENT_MUTE.String() &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_ROUTER_CLIENT.String()
-
 }
 
 func (c *ClientDetails) SyncUserID() {
@@ -200,6 +200,9 @@ func (c *ClientDetails) GetValidationErrors() []string {
 		errs = append(errs, fmt.Sprintf("Invalid node role: %s", pb.Config_DeviceConfig_CLIENT_MUTE.String()))
 	} else if c.NodeDetails.NodeRole == pb.Config_DeviceConfig_ROUTER_CLIENT.String() {
 		errs = append(errs, fmt.Sprintf("Deprecated node role: %s", pb.Config_DeviceConfig_ROUTER_CLIENT.String()))
+	}
+	if c.HasMissingOkToMqtt {
+		errs = append(errs, "Node is sending packets without OK to MQTT enabled")
 	}
 
 	return errs

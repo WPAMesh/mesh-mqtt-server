@@ -29,6 +29,29 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 	}
 
 	if decoded.Bitfield == nil || *decoded.Bitfield&uint32(BITFIELD_OkToMQTT) == 0 {
+		// Check if this packet is from the gateway node itself (not relayed)
+		sendingNode := meshtastic.NodeID(pkt.From)
+		isFromGateway := env.GatewayId == sendingNode.String()
+
+		if isFromGateway && client != nil && client.IsMeshDevice() {
+			// Flag that this gateway is sending packets without OkToMQTT
+			if !client.HasMissingOkToMqtt {
+				client.HasMissingOkToMqtt = true
+				h.Log.Warn("gateway sending packets without OkToMQTT bit",
+					"client", client.ClientID,
+					"node", sendingNode,
+					"portnum", decoded.Portnum.String())
+			}
+
+			// Log if this would have been a verification response
+			if client.IsPendingVerification() && decoded.RequestId == client.VerifyPacketID {
+				h.Log.Warn("dropping potential verification response due to missing OkToMQTT bit",
+					"client", client.ClientID,
+					"portnum", decoded.Portnum.String(),
+					"request_id", decoded.RequestId,
+					"from", sendingNode)
+			}
+		}
 		return false
 	}
 
@@ -117,7 +140,7 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 			h.config.Server.Log.Error("error updating node info", "node", client.NodeDetails.NodeID, "client", client.ClientID, "error", err)
 			return
 		}
-		h.config.Server.Log.Info("node downlink verified", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic", client.RootTopic, "channel", client.VerifyChannel)
+		h.config.Server.Log.Info("node downlink verified", "node", client.NodeDetails.NodeID, "client", client.ClientID, "topic", client.RootTopic, "channel", client.VerifyChannel, "via_portnum", data.Portnum.String())
 		// Clear pending verification state
 		client.SetVerificationPending(0, "")
 		// Notify subscribers about the verification status change

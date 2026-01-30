@@ -267,44 +267,65 @@ func (c *MeshtasticHook) processTraceroute(env *pb.ServiceEnvelope, data *pb.Dat
 	}
 }
 
+// maxRouteSize matches the firmware's ROUTE_SIZE constant (max entries in route arrays)
+const maxRouteSize = 8
+
 func (c *MeshtasticHook) insertUnknownHops(packet *pb.MeshPacket, disco *pb.RouteDiscovery, isTowardsDestination bool) {
-	// Insert unknown
-	var routeCount = 0
-	var snrCount = 0
-	var route *[]uint32
-	var snrList *[]int32
+	// Calculate hops taken, matching firmware's getHopsAway logic
+	hopsTaken := c.getHopsAway(packet)
+	if hopsTaken < 0 {
+		return
+	}
 
 	if isTowardsDestination {
-		routeCount = len(disco.Route)
-		snrCount = len(disco.SnrTowards)
-		route = &disco.Route
-		snrList = &disco.SnrTowards
+		// Insert unknown hops into route/snr_towards
+		diff := hopsTaken - len(disco.Route)
+		for i := 0; i < diff; i++ {
+			if len(disco.Route) < maxRouteSize {
+				disco.Route = append(disco.Route, meshtastic.BROADCAST_ID)
+			}
+		}
+		// Pad SNR array to match route length
+		diff = len(disco.Route) - len(disco.SnrTowards)
+		for i := 0; i < diff; i++ {
+			if len(disco.SnrTowards) < maxRouteSize {
+				disco.SnrTowards = append(disco.SnrTowards, math.MinInt8)
+			}
+		}
 	} else {
-		routeCount = len(disco.RouteBack)
-		snrCount = len(disco.SnrBack)
-		route = &disco.RouteBack
-		snrList = &disco.SnrBack
-	}
-
-	if packet.HopStart != 0 && packet.HopLimit <= packet.HopStart {
-		hopsTaken := packet.HopStart - packet.HopLimit
-		diff := int(hopsTaken) - routeCount
-
+		// Insert unknown hops into route_back/snr_back
+		diff := hopsTaken - len(disco.RouteBack)
 		for i := 0; i < diff; i++ {
-			if routeCount < len(*route) {
-				r := append(*route, meshtastic.BROADCAST_ID)
-				route = &r
-				routeCount += 1
+			if len(disco.RouteBack) < maxRouteSize {
+				disco.RouteBack = append(disco.RouteBack, meshtastic.BROADCAST_ID)
 			}
 		}
-
-		diff = routeCount - snrCount
+		// Pad SNR array to match route length
+		diff = len(disco.RouteBack) - len(disco.SnrBack)
 		for i := 0; i < diff; i++ {
-			if snrCount < len(*snrList) {
-				s := append(*snrList, math.MinInt8) // Min == SNR Unknown
-				snrList = &s
-				snrCount += 1
+			if len(disco.SnrBack) < maxRouteSize {
+				disco.SnrBack = append(disco.SnrBack, math.MinInt8)
 			}
 		}
 	}
+}
+
+// getHopsAway calculates how many hops the packet has traveled, matching firmware logic.
+// Returns -1 if hops cannot be reliably determined.
+func (c *MeshtasticHook) getHopsAway(packet *pb.MeshPacket) int {
+	// Firmware prior to 2.3.0 lacked hop_start. Firmware 2.5.0+ has bitfield always present.
+	// If hop_start is 0 and no bitfield, we can't determine hops.
+	decoded, isDecoded := packet.GetPayloadVariant().(*pb.MeshPacket_Decoded)
+	hasBitfield := isDecoded && decoded.Decoded.Bitfield != nil
+
+	if packet.HopStart == 0 && !hasBitfield {
+		return -1
+	}
+
+	// Guard against invalid values
+	if packet.HopStart < packet.HopLimit {
+		return -1
+	}
+
+	return int(packet.HopStart - packet.HopLimit)
 }

@@ -4,6 +4,8 @@
 // 	protoc        v6.31.1
 // source: meshtastic/channel.proto
 
+// trunk-ignore(buf-lint/PACKAGE_DIRECTORY_MATCH)
+
 package generated
 
 import (

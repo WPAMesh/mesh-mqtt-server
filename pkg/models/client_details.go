@@ -25,22 +25,62 @@ type MeshMqttServer interface {
 	GetUserClients(userID string) []*ClientDetails
 }
 
+// PortNumStats tracks packet counts for a specific port number
+type PortNumStats struct {
+	WithFlag    uint64 // Packets with OK to MQTT flag set
+	WithoutFlag uint64 // Packets without OK to MQTT flag
+}
+
+// OkToMqttStats tracks statistics about OK to MQTT flag on packets from gateway nodes
+type OkToMqttStats struct {
+	// ByPortNum tracks stats per port number for packets from the gateway node itself
+	ByPortNum map[int32]*PortNumStats
+}
+
+// RecordPacket records a packet from the gateway node with or without the OK to MQTT flag
+func (s *OkToMqttStats) RecordPacket(portNum int32, hasFlag bool) {
+	if s.ByPortNum == nil {
+		s.ByPortNum = make(map[int32]*PortNumStats)
+	}
+	if s.ByPortNum[portNum] == nil {
+		s.ByPortNum[portNum] = &PortNumStats{}
+	}
+	if hasFlag {
+		s.ByPortNum[portNum].WithFlag++
+	} else {
+		s.ByPortNum[portNum].WithoutFlag++
+	}
+}
+
+// GetTotals returns the total counts across all port numbers
+func (s *OkToMqttStats) GetTotals() (withFlag, withoutFlag uint64) {
+	if s.ByPortNum == nil {
+		return 0, 0
+	}
+	for _, stats := range s.ByPortNum {
+		withFlag += stats.WithFlag
+		withoutFlag += stats.WithoutFlag
+	}
+	return
+}
+
 type ClientDetails struct {
 	sync.RWMutex
-	MqttUserName      string
-	UserID            int
-	ClientID          string
-	NodeDetails       *NodeInfo
-	ProxyType         string
-	Address           string
-	RootTopic         string
-	VerifyPacketID    uint32
-	VerifyReqTime     *time.Time
-	VerifyChannel     string // Channel used for the current verification request
-	InvalidPackets    int
-	ValidGWChecker    func() bool
-	HasPublished      bool // True if this non-mesh client has published to mesh topics
-	HasMissingOkToMqtt bool // True if we detected packets from this gateway without OkToMQTT bit
+	MqttUserName       string
+	UserID             int
+	ClientID           string
+	NodeDetails        *NodeInfo
+	ProxyType          string
+	Address            string
+	RootTopic          string
+	VerifyPacketID     uint32
+	VerifyReqTime      *time.Time
+	VerifyChannel      string // Channel used for the current verification request
+	InvalidPackets     int
+	ValidGWChecker     func() bool
+	HasPublished       bool           // True if this non-mesh client has published to mesh topics
+	HasMissingOkToMqtt bool           // True if we detected packets from this gateway without OkToMQTT bit
+	OkToMqttStats      OkToMqttStats  // Stats tracking for OK to MQTT flag on gateway packets
 }
 
 type NodeInfo struct {

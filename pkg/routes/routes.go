@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sort"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -15,6 +16,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
+	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	"golang.org/x/oauth2"
@@ -23,6 +25,36 @@ import (
 const (
 	sessionName = "mesht_mqtt"
 )
+
+// convertOkToMqttStats converts model stats to the display format
+func convertOkToMqttStats(stats *models.OkToMqttStats) *components.OkToMqttStatsData {
+	if stats == nil || stats.ByPortNum == nil || len(stats.ByPortNum) == 0 {
+		return nil
+	}
+
+	totalWith, totalWithout := stats.GetTotals()
+	result := &components.OkToMqttStatsData{
+		TotalWithFlag:    totalWith,
+		TotalWithoutFlag: totalWithout,
+		ByPortNum:        make([]components.PortNumStatsData, 0, len(stats.ByPortNum)),
+	}
+
+	for portNum, portStats := range stats.ByPortNum {
+		result.ByPortNum = append(result.ByPortNum, components.PortNumStatsData{
+			PortNum:     portNum,
+			PortName:    pb.PortNum(portNum).String(),
+			WithFlag:    portStats.WithFlag,
+			WithoutFlag: portStats.WithoutFlag,
+		})
+	}
+
+	// Sort by port number for consistent display
+	sort.Slice(result.ByPortNum, func(i, j int) bool {
+		return result.ByPortNum[i].PortNum < result.ByPortNum[j].PortNum
+	})
+
+	return result
+}
 
 var DiscordEndpoint = oauth2.Endpoint{
 	AuthURL:  "https://discord.com/oauth2/authorize",
@@ -119,6 +151,7 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/api/users/{id}", wr.updateUser).Methods("PUT")
 	myRouter.HandleFunc("/api/users/{id}", wr.deleteUser).Methods("DELETE")
 	myRouter.HandleFunc("/api/forwarding/status", wr.getForwardingStatus).Methods("GET")
+	myRouter.HandleFunc("/api/gateway-stats", wr.getGatewayStats).Methods("GET")
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
 	myRouter.HandleFunc("/auth/discord/callback", wr.discordCallbackHandler)
@@ -420,6 +453,7 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 			ClientID:         c.ClientID,
 			UserDisplay:      userDisplay,
 			ValidationErrors: c.GetValidationErrors(),
+			OkToMqttStats:    convertOkToMqttStats(&c.OkToMqttStats),
 		}
 
 		// Add node color if node details are available
@@ -724,4 +758,83 @@ func (wr *WebRouter) getForwardingStatus(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// GatewayStatsEntry holds stats for a single gateway
+type GatewayStatsEntry struct {
+	NodeID        string                     `json:"node_id"`
+	ShortName     string                     `json:"short_name"`
+	LongName      string                     `json:"long_name"`
+	ClientID      string                     `json:"client_id"`
+	UserDisplay   string                     `json:"user_display,omitempty"`
+	OkToMqttStats *components.OkToMqttStatsData `json:"ok_to_mqtt_stats"`
+}
+
+// GatewayStatsResponse is the API response for gateway stats
+type GatewayStatsResponse struct {
+	Gateways []GatewayStatsEntry `json:"gateways"`
+}
+
+func (wr *WebRouter) getGatewayStats(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	query := r.URL.Query()
+	allUsers := query.Get("all_users") == "true"
+
+	// Authorization check for all_users flag
+	if allUsers && !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Get clients based on authorization
+	var clients []*models.ClientDetails
+	if allUsers {
+		clients = wr.MqttServer.GetAllClients()
+	} else {
+		clients = wr.MqttServer.GetUserClients(user.UserName)
+	}
+
+	gateways := []GatewayStatsEntry{}
+
+	for _, c := range clients {
+		// Only include mesh devices with stats
+		if !c.IsMeshDevice() {
+			continue
+		}
+
+		stats := convertOkToMqttStats(&c.OkToMqttStats)
+		if stats == nil {
+			continue
+		}
+
+		nodeID := ""
+		if c.NodeDetails != nil {
+			nodeID = c.NodeDetails.NodeID.String()
+		}
+
+		userDisplay := ""
+		if allUsers {
+			userDisplay = wr.getUserDisplay(c.MqttUserName)
+		}
+
+		gateways = append(gateways, GatewayStatsEntry{
+			NodeID:        nodeID,
+			ShortName:     c.GetShortName(),
+			LongName:      c.GetLongName(),
+			ClientID:      c.ClientID,
+			UserDisplay:   userDisplay,
+			OkToMqttStats: stats,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GatewayStatsResponse{
+		Gateways: gateways,
+	})
 }

@@ -28,11 +28,23 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 		return false
 	}
 
-	if decoded.Bitfield == nil || *decoded.Bitfield&uint32(BITFIELD_OkToMQTT) == 0 {
-		// Check if this packet is from the gateway node itself (not relayed)
-		sendingNode := meshtastic.NodeID(pkt.From)
-		isFromGateway := env.GatewayId == sendingNode.String()
+	// Check if this packet is from the gateway node itself (not relayed)
+	sendingNode := meshtastic.NodeID(pkt.From)
+	isFromGateway := env.GatewayId == sendingNode.String()
+	hasOkToMqtt := decoded.Bitfield != nil && *decoded.Bitfield&uint32(BITFIELD_OkToMQTT) != 0
 
+	// MAP_REPORT packets are only sent over MQTT, so firmware doesn't set the OkToMQTT flag.
+	// Treat these as if they have the flag set since this is expected behavior.
+	if decoded.Portnum == pb.PortNum_MAP_REPORT_APP {
+		hasOkToMqtt = true
+	}
+
+	// Track stats for packets from the gateway node itself
+	if isFromGateway && client != nil && client.IsMeshDevice() {
+		client.OkToMqttStats.RecordPacket(int32(decoded.Portnum), hasOkToMqtt)
+	}
+
+	if !hasOkToMqtt {
 		if isFromGateway && client != nil && client.IsMeshDevice() {
 			// Flag that this gateway is sending packets without OkToMQTT
 			if !client.HasMissingOkToMqtt {

@@ -45,10 +45,27 @@ MeshSettings:
   Channels:
     - Name: "LongFast"
       Key: "AQ=="  # Base64 encoded channel key
+      Export: true  # Include this channel in exported configs
+  VerificationChannels:  # Channels to try for downlink verification (in order)
+    - "LongFast"
   SelfNode:
     NodeID: "!12345678"
     LongName: "Western PA Mesh Server"
     ShortName: "WPAMesh"
+
+# Optional: Forward packets to external MQTT servers
+Forwarding:
+  Enabled: false
+  Targets:
+    - Name: "meshtastic-public"
+      Address: "mqtt.meshtastic.org:1883"
+      Username: "meshdev"
+      Password: "large4cats"
+      UseTLS: false
+      Topics:
+        - "msh/#"
+      TopicRewrites:
+        "msh/US/2/e": "msh/US/PA/WPAmesh/2/e"
 
 Database:
   User: "postgres"
@@ -143,16 +160,25 @@ msh/region/2/e/channel/nodeID          # Standard topic (auto-rewritten for non-
 The server includes a downlink verification system to ensure bidirectional communication with mesh nodes, which is critical for gateway-enabled nodes:
 
 **How It Works:**
-1. When a node connects using a gateway topic, the server sends a NodeInfo request packet
-2. The server tracks the verification packet ID and waits for a response
-3. When the node responds to the request, the verification timestamp is updated in the database
-4. Nodes are periodically re-verified to ensure ongoing connectivity
+1. When a node subscribes to a gateway topic, the server sends a NodeInfo request packet
+2. The server tries channels from `VerificationChannels` in order, waiting 60 seconds per channel
+3. When the node responds, its primary channel is recorded and used for future verifications
+4. Verification is valid for 3 days; re-verification triggers automatically after 1 day
 
-**Verification States:**
-- **Unverified**: Node has never responded to a verification request
-- **Verified**: Node has recently responded (timestamp stored in database)
-- **Expiring Soon**: Verification is older than threshold, re-verification triggered
-- **Pending**: Verification request sent, awaiting response
+**Multi-Channel Verification:**
+
+Nodes may be configured for different channels (LongFast, MediumSlow, etc.). The server handles this by:
+- Trying each channel in the `VerificationChannels` list sequentially
+- Waiting 60 seconds per channel before trying the next
+- Recording whichever channel successfully receives a response as the node's "primary channel"
+- Using the primary channel directly for future re-verifications
+
+**Timing:**
+- Per-channel timeout: 60 seconds
+- Overall verification window: 15 minutes
+- Verification validity: 3 days
+- Re-verification threshold: 1 day (triggers early renewal)
+- Periodic check interval: 1 hour
 
 **Why This Matters:**
 - Confirms the node can receive downlink messages (not just send uplink)
@@ -161,7 +187,39 @@ The server includes a downlink verification system to ensure bidirectional commu
 - Prevents misconfigured clients from disrupting mesh operations
 
 **Configuration:**
-Verification happens automatically for nodes using gateway topics. The server sends packets as its configured `SelfNode` identity with the CLIENT_MUTE role to avoid interfering with normal mesh operations.
+Verification happens automatically for nodes using gateway topics. Configure `VerificationChannels` in the config to specify which channels to try and in what order. The server sends packets as its configured `SelfNode` identity with the CLIENT_MUTE role to avoid interfering with normal mesh operations.
+
+### MQTT Forwarding
+
+The server can forward packets to external MQTT servers, useful for bridging to the public Meshtastic network or other infrastructure:
+
+**Features:**
+- Forward to multiple targets simultaneously
+- Topic pattern filtering (e.g., only forward `msh/#`)
+- Topic rewriting rules to transform topics before forwarding
+- TLS support for secure connections
+- Automatic reconnection on failure
+
+**Configuration:**
+```yaml
+Forwarding:
+  Enabled: true
+  Targets:
+    - Name: "meshtastic-public"
+      Address: "mqtt.meshtastic.org:1883"
+      Username: "meshdev"
+      Password: "large4cats"
+      UseTLS: false
+      Topics:
+        - "msh/#"
+      TopicRewrites:
+        "msh/US/2/e": "msh/US/PA/WPAmesh/2/e"
+```
+
+**Use Cases:**
+- Bridge local mesh traffic to the public Meshtastic MQTT server
+- Rewrite topics to place your network under a regional hierarchy
+- Forward to multiple servers for redundancy or different purposes
 
 ### Access Control
 

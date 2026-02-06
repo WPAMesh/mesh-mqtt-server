@@ -162,6 +162,21 @@ func main() {
 		}
 	}
 
+	// Add Bridge hook if enabled
+	var bridgeHook *hooks.BridgeHook
+	if config.Bridge.Enabled {
+		bridgeHook = new(hooks.BridgeHook)
+		err = server.AddHook(bridgeHook, &hooks.BridgeHookOptions{
+			Server:       server,
+			MeshSettings: config.MeshSettings,
+			Bridge:       config.Bridge,
+			Storage:      storage,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	// Start the server
 	go func() {
 		err := server.Serve()
@@ -187,6 +202,9 @@ func main() {
 	}
 	if meshCoreHook != nil {
 		_ = meshCoreHook.Stop()
+	}
+	if bridgeHook != nil {
+		_ = bridgeHook.Stop()
 	}
 
 	_ = server.Close()

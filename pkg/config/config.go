@@ -15,6 +15,7 @@ type Configuration struct {
 	MeshSettings MeshSettings
 	MeshCore     MeshCoreSettings
 	Forwarding   ForwardingSettings
+	Bridge       BridgeSettings
 	Database     struct {
 		User     string
 		Password string
@@ -78,4 +79,32 @@ type ForwardingTarget struct {
 	TopicRewrites map[string]string
 	// ClientID is the MQTT client ID to use (auto-generated if empty)
 	ClientID string
+}
+
+// BridgeSettings configures bidirectional bridging between Meshtastic and MeshCore
+type BridgeSettings struct {
+	// Enabled controls whether bridging is active
+	Enabled bool
+	// ChannelMappings defines which Meshtastic channels map to which MeshCore channels
+	ChannelMappings []ChannelMapping
+	// MeshtasticPrefix is prepended to messages bridged TO MeshCore (e.g., "[MT] ")
+	MeshtasticPrefix string
+	// MeshCorePrefix is prepended to messages bridged TO Meshtastic (e.g., "[MC] ")
+	MeshCorePrefix string
+	// ParseSenderName attempts to extract "Name: message" format from MeshCore messages
+	ParseSenderName bool
+}
+
+// ChannelMapping defines a mapping between a Meshtastic channel and MeshCore channel
+type ChannelMapping struct {
+	// MeshtasticChannel is the channel name (e.g., "LongFast")
+	MeshtasticChannel string
+	// MeshtasticTopicRoot is the MQTT topic root (e.g., "msh/US")
+	MeshtasticTopicRoot string
+	// MeshCoreMeshID is the mesh ID for the MeshCore bridge (e.g., "bridge01")
+	MeshCoreMeshID string
+	// MeshCoreChannelKey is the base64-encoded shared key for MeshCore encryption/decryption
+	MeshCoreChannelKey string
+	// Direction controls which way messages are bridged: "both", "mt_to_mc", "mc_to_mt"
+	Direction string
 }

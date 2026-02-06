@@ -17,19 +17,21 @@ var dbMigrations embed.FS
 
 // Stores one stop for stores
 type Stores struct {
-	Users       UserStore
-	OAuthTokens OAuthTokenStore
-	NodeDB      NodeInfoStore
-	db          *sqlx.DB
+	Users          UserStore
+	OAuthTokens    OAuthTokenStore
+	NodeDB         NodeInfoStore
+	MeshCoreNodes  MeshCoreNodeStore
+	db             *sqlx.DB
 }
 
 // New create all the stores
 func New(dbconn *sqlx.DB) (*Stores, error) {
 	return &Stores{
-		db:          dbconn,
-		Users:       NewUsers(dbconn),
-		OAuthTokens: NewOAuthTokens(dbconn),
-		NodeDB:      NewNodeDB(dbconn),
+		db:            dbconn,
+		Users:         NewUsers(dbconn),
+		OAuthTokens:   NewOAuthTokens(dbconn),
+		NodeDB:        NewNodeDB(dbconn),
+		MeshCoreNodes: NewMeshCoreNodeDB(dbconn),
 	}, nil
 }
 

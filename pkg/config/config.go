@@ -13,6 +13,7 @@ type Configuration struct {
 		Discord oauth2.Config
 	}
 	MeshSettings MeshSettings
+	MeshCore     MeshCoreSettings
 	Forwarding   ForwardingSettings
 	Database     struct {
 		User     string
@@ -41,6 +42,14 @@ type MeshChannelDef struct {
 	Name   string
 	Key    string
 	Export bool
+}
+
+// MeshCoreSettings configures MeshCore protocol support
+type MeshCoreSettings struct {
+	// Enabled controls whether MeshCore packet processing is active
+	Enabled bool
+	// TopicPrefix is the MQTT topic prefix for MeshCore packets (default: "meshcore")
+	TopicPrefix string
 }
 
 // ForwardingSettings configures MQTT packet forwarding to external servers

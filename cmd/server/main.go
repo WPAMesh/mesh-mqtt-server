@@ -148,6 +148,20 @@ func main() {
 		router.ForwardingHook = forwardingHook
 	}
 
+	// Add MeshCore hook if enabled
+	var meshCoreHook *hooks.MeshCoreHook
+	if config.MeshCore.Enabled {
+		meshCoreHook = new(hooks.MeshCoreHook)
+		err = server.AddHook(meshCoreHook, &hooks.MeshCoreHookOptions{
+			Server:   server,
+			Storage:  storage,
+			Settings: config.MeshCore,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	// Start the server
 	go func() {
 		err := server.Serve()
@@ -170,6 +184,9 @@ func main() {
 	_ = meshHook.Stop()
 	if forwardingHook != nil {
 		_ = forwardingHook.Stop()
+	}
+	if meshCoreHook != nil {
+		_ = meshCoreHook.Stop()
 	}
 
 	_ = server.Close()

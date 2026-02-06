@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"hash/crc32"
 	"regexp"
 	"sync"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/meshcore/codec"
 	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
 	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/radio"
+	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
 
@@ -385,6 +388,18 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 		return
 	}
 
+	// Loop prevention: check if sender is a virtual node (bridged from MeshCore)
+	if h.config.Storage != nil {
+		isVirtual, err := h.config.Storage.VirtualNodes.IsVirtualNode(packet.From)
+		if err != nil {
+			h.Log.Warn("failed to check virtual node", "error", err)
+		} else if isVirtual {
+			h.Log.Debug("ignoring packet from virtual node (loop prevention)",
+				"from", fmt.Sprintf("!%08x", packet.From))
+			return
+		}
+	}
+
 	// Decrypt the packet
 	data, err := radio.TryDecode(packet, idx.meshtasticKey)
 	if err != nil {
@@ -531,12 +546,44 @@ func (h *BridgeHook) handleMeshCoreMessage(pk packets.Packet, meshID string) {
 			return
 		}
 
+		// Extract sender name from "Name: message" format
+		senderName, msgContent, hasSender := ParseSenderFromMessage(message)
+
+		// Try to get or create a virtual node for identity-preserving bridging
+		var virtualNodeID uint32
+		var displayName string
+		var isNewVirtualNode bool
+		if hasSender && senderName != "" {
+			virtualNodeID, displayName, isNewVirtualNode = h.getOrCreateVirtualNode(senderName)
+		}
+
 		// Format message for Meshtastic
-		formattedMsg, _ := FormatMeshCoreToMeshtastic(message, h.config.Bridge.MeshCorePrefix, h.config.Bridge.ParseSenderName)
+		var formattedMsg string
+		if virtualNodeID != 0 {
+			// We have a virtual node - the From field will identify the sender,
+			// so we only need the message content (optionally with prefix)
+			if h.config.Bridge.MeshCorePrefix != "" {
+				formattedMsg = h.config.Bridge.MeshCorePrefix + msgContent
+			} else {
+				formattedMsg = msgContent
+			}
+			h.Log.Debug("bridging with virtual node identity",
+				"sender", displayName,
+				"virtual_node_id", fmt.Sprintf("!%08x", virtualNodeID))
+		} else {
+			// No virtual node - include sender name in message text
+			formattedMsg, _ = FormatMeshCoreToMeshtastic(message, h.config.Bridge.MeshCorePrefix, h.config.Bridge.ParseSenderName)
+		}
 		formattedMsg = TruncateMessage(formattedMsg, maxBridgeMessageLen)
 
 		// Send to Meshtastic
-		h.sendToMeshtastic(idx, formattedMsg)
+		h.sendToMeshtastic(idx, formattedMsg, virtualNodeID)
+
+		// Broadcast NODEINFO for new virtual nodes so clients learn about them
+		if isNewVirtualNode && virtualNodeID != 0 {
+			h.broadcastVirtualNodeInfo(idx, virtualNodeID, displayName)
+		}
+
 		return // Only send once even if multiple mappings match
 	}
 }
@@ -602,7 +649,9 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 }
 
 // sendToMeshtastic sends a message to Meshtastic.
-func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string) {
+// If virtualNodeID is non-zero, uses it as the From field (for identity-preserving bridging).
+// Otherwise uses the bridge's own node ID.
+func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string, virtualNodeID uint32) {
 	// Build Meshtastic Data payload
 	bitfield := uint32(BITFIELD_OkToMQTT)
 	data := pb.Data{
@@ -620,6 +669,9 @@ func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string) 
 	// Encrypt
 	packetID := h.generatePacketID()
 	fromNode := uint32(h.config.MeshSettings.SelfNode.NodeID)
+	if virtualNodeID != 0 {
+		fromNode = virtualNodeID
+	}
 
 	encrypted, err := radio.XOR(rawData, idx.meshtasticKey, packetID, fromNode)
 	if err != nil {
@@ -702,4 +754,185 @@ func (h *BridgeHook) Stop() error {
 // IsEnabled returns whether bridging is enabled.
 func (h *BridgeHook) IsEnabled() bool {
 	return h.config != nil && h.config.Bridge.Enabled
+}
+
+// MCPubKeyToNodeID converts a MeshCore ed25519 public key to a Meshtastic-style NodeID
+// using CRC32 for a deterministic 32-bit mapping.
+func MCPubKeyToNodeID(pubkey []byte) uint32 {
+	return crc32.ChecksumIEEE(pubkey)
+}
+
+// broadcastVirtualNodeInfo broadcasts NODEINFO for a virtual node so Meshtastic clients
+// can learn about it. This is called when a virtual node first sends a message.
+func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualNodeID uint32, displayName string) {
+	// Build short name (up to 4 chars)
+	shortName := displayName
+	if len(shortName) > 4 {
+		shortName = shortName[:4]
+	}
+
+	// Build long name with source prefix
+	longName := "MC:" + displayName
+	if len(longName) > 39 { // Meshtastic limit
+		longName = longName[:39]
+	}
+
+	// Build User (NODEINFO) payload
+	user := &pb.User{
+		Id:        fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:  longName,
+		ShortName: shortName,
+		HwModel:   pb.HardwareModel_PRIVATE_HW, // Signals this is a bridged/virtual node
+		Role:      pb.Config_DeviceConfig_CLIENT,
+	}
+
+	rawUser, err := proto.Marshal(user)
+	if err != nil {
+		h.Log.Error("failed to marshal NODEINFO for virtual node", "error", err)
+		return
+	}
+
+	// Build Meshtastic Data payload
+	bitfield := uint32(BITFIELD_OkToMQTT)
+	data := pb.Data{
+		Portnum:  pb.PortNum_NODEINFO_APP,
+		Payload:  rawUser,
+		Bitfield: &bitfield,
+	}
+
+	rawData, err := proto.Marshal(&data)
+	if err != nil {
+		h.Log.Error("failed to marshal Data for virtual node NODEINFO", "error", err)
+		return
+	}
+
+	// Encrypt
+	packetID := h.generatePacketID()
+	encrypted, err := radio.XOR(rawData, idx.meshtasticKey, packetID, virtualNodeID)
+	if err != nil {
+		h.Log.Error("failed to encrypt virtual node NODEINFO", "error", err)
+		return
+	}
+
+	// Build MeshPacket - broadcast to all
+	msgTime := uint32(time.Now().Unix())
+	pkt := pb.MeshPacket{
+		Id:       packetID,
+		To:       uint32(0xFFFFFFFF), // Broadcast
+		From:     virtualNodeID,
+		HopLimit: 0,
+		HopStart: 0,
+		ViaMqtt:  true,
+		RxTime:   msgTime,
+		Channel:  idx.meshtasticHash,
+		Priority: pb.MeshPacket_DEFAULT,
+		Delayed:  pb.MeshPacket_NO_DELAY,
+		PayloadVariant: &pb.MeshPacket_Encrypted{
+			Encrypted: encrypted,
+		},
+	}
+
+	// Build ServiceEnvelope
+	env := pb.ServiceEnvelope{
+		ChannelId: idx.mapping.MeshtasticChannel,
+		GatewayId: fmt.Sprintf("!%08x", virtualNodeID), // Virtual node as gateway
+		Packet:    &pkt,
+	}
+
+	rawEnv, err := proto.Marshal(&env)
+	if err != nil {
+		h.Log.Error("failed to marshal ServiceEnvelope for virtual node NODEINFO", "error", err)
+		return
+	}
+
+	// Publish to Meshtastic topic
+	topic := idx.mapping.MeshtasticTopicRoot + "/2/e/" + idx.mapping.MeshtasticChannel + "/" + fmt.Sprintf("!%08x", virtualNodeID)
+
+	go func(t string, payload []byte) {
+		// Small delay before NODEINFO to allow text message to be processed first
+		time.Sleep(100 * time.Millisecond)
+
+		err := h.config.Server.Publish(t, payload, false, 0)
+		if err != nil {
+			h.Log.Error("failed to publish virtual node NODEINFO", "error", err, "topic", t)
+		} else {
+			h.Log.Debug("broadcast NODEINFO for virtual node",
+				"node_id", fmt.Sprintf("!%08x", virtualNodeID),
+				"name", displayName)
+		}
+	}(topic, rawEnv)
+}
+
+// getOrCreateVirtualNode looks up or creates a virtual node for a MeshCore identity.
+// Returns the virtual node's Meshtastic NodeID, display name, and whether this is a newly created node.
+func (h *BridgeHook) getOrCreateVirtualNode(senderName string) (uint32, string, bool) {
+	if h.config.Storage == nil {
+		return 0, senderName, false
+	}
+
+	// Try to find the MeshCore node by name
+	mcNodes, err := h.config.Storage.MeshCoreNodes.GetAllNodes()
+	if err != nil {
+		h.Log.Warn("failed to load MeshCore nodes for virtual node lookup", "error", err)
+		return 0, senderName, false
+	}
+
+	var matchedNode *models.MeshCoreNodeInfo
+	for _, node := range mcNodes {
+		if node.Name == senderName {
+			matchedNode = node
+			break
+		}
+	}
+
+	if matchedNode == nil || len(matchedNode.PubKey) < 32 {
+		// No matching MeshCore node found - can't create virtual node
+		h.Log.Debug("no matching MeshCore node found for sender", "sender", senderName)
+		return 0, senderName, false
+	}
+
+	// Compute virtual NodeID from pubkey
+	virtualNodeID := MCPubKeyToNodeID(matchedNode.PubKey)
+
+	// Check if we already have this virtual node
+	existingNode, err := h.config.Storage.VirtualNodes.GetByNodeID(virtualNodeID)
+	if err != nil {
+		h.Log.Warn("failed to lookup virtual node", "error", err)
+		return virtualNodeID, senderName, false
+	}
+
+	now := time.Now()
+	if existingNode != nil {
+		// Update last seen
+		if err := h.config.Storage.VirtualNodes.UpdateLastSeen(virtualNodeID); err != nil {
+			h.Log.Warn("failed to update virtual node last seen", "error", err)
+		}
+		// Use existing display name if set, otherwise use sender name
+		if existingNode.DisplayName != "" {
+			return virtualNodeID, existingNode.DisplayName, false
+		}
+		return virtualNodeID, senderName, false
+	}
+
+	// Create new virtual node
+	virtualNode := &models.VirtualNode{
+		NodeID:      virtualNodeID,
+		Source:      models.VirtualNodeSourceMeshCore,
+		ExternalID:  hex.EncodeToString(matchedNode.PubKey),
+		DisplayName: senderName,
+		FirstSeen:   now,
+		LastSeen:    now,
+	}
+
+	if err := h.config.Storage.VirtualNodes.Save(virtualNode); err != nil {
+		h.Log.Warn("failed to save virtual node", "error", err)
+		return virtualNodeID, senderName, false
+	}
+
+	h.Log.Info("created virtual node for MeshCore user",
+		"node_id", fmt.Sprintf("!%08x", virtualNodeID),
+		"name", senderName,
+		"pubkey_prefix", hex.EncodeToString(matchedNode.PubKey[:8]))
+
+	return virtualNodeID, senderName, true
 }

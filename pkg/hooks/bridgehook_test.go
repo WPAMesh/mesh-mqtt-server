@@ -363,6 +363,37 @@ func TestLoopDetectionWithNames(t *testing.T) {
 	}
 }
 
+func TestMCPubKeyToNodeID(t *testing.T) {
+	// Test determinism - same pubkey should always produce same NodeID
+	pubkey := make([]byte, 32)
+	for i := range pubkey {
+		pubkey[i] = byte(i + 0x10)
+	}
+
+	nodeID1 := MCPubKeyToNodeID(pubkey)
+	nodeID2 := MCPubKeyToNodeID(pubkey)
+
+	if nodeID1 != nodeID2 {
+		t.Errorf("MCPubKeyToNodeID not deterministic: got %08x then %08x", nodeID1, nodeID2)
+	}
+
+	// Different pubkeys should produce different NodeIDs
+	pubkey2 := make([]byte, 32)
+	for i := range pubkey2 {
+		pubkey2[i] = byte(i + 0x20)
+	}
+
+	nodeID3 := MCPubKeyToNodeID(pubkey2)
+	if nodeID1 == nodeID3 {
+		t.Log("Warning: Different pubkeys produced same NodeID (collision)")
+	}
+
+	// NodeID should be non-zero for typical pubkeys
+	if nodeID1 == 0 {
+		t.Error("MCPubKeyToNodeID produced zero NodeID")
+	}
+}
+
 func TestEncryptDecryptWithBase64Key(t *testing.T) {
 	// Test with a real base64-encoded key like would be in config
 	keyBase64 := "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="

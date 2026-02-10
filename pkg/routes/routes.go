@@ -16,9 +16,9 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"golang.org/x/oauth2"
 )
 
@@ -762,11 +762,11 @@ func (wr *WebRouter) getForwardingStatus(w http.ResponseWriter, r *http.Request)
 
 // GatewayStatsEntry holds stats for a single gateway
 type GatewayStatsEntry struct {
-	NodeID        string                     `json:"node_id"`
-	ShortName     string                     `json:"short_name"`
-	LongName      string                     `json:"long_name"`
-	ClientID      string                     `json:"client_id"`
-	UserDisplay   string                     `json:"user_display,omitempty"`
+	NodeID        string                        `json:"node_id"`
+	ShortName     string                        `json:"short_name"`
+	LongName      string                        `json:"long_name"`
+	ClientID      string                        `json:"client_id"`
+	UserDisplay   string                        `json:"user_display,omitempty"`
 	OkToMqttStats *components.OkToMqttStatsData `json:"ok_to_mqtt_stats"`
 }
 

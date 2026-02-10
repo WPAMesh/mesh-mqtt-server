@@ -5,10 +5,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/radio"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
+	"github.com/kabili207/mesh-mqtt-server/pkg/util"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
+	"github.com/kabili207/meshtastic-go/core/crypto"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,7 +24,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 	case *pb.MeshPacket_Decoded:
 		shouldReencrypt = false
 	}
-	decoded, err := radio.TryDecode(pkt, radio.DefaultKey)
+	decoded, err := crypto.TryDecode(pkt, crypto.DefaultKey)
 	if err != nil || decoded == nil {
 		return false
 	}
@@ -78,7 +79,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 		if err != nil {
 			return false
 		}
-		rawData, err = radio.XOR(rawData, radio.DefaultKey, pkt.Id, pkt.From)
+		rawData, err = crypto.XOR(rawData, crypto.DefaultKey, pkt.Id, pkt.From)
 		if err != nil {
 			return false
 		}
@@ -142,7 +143,7 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 			client.NodeDetails = nodeDetails
 		}
 
-		client.NodeDetails.VerifiedDate = radio.Ptr(time.Now())
+		client.NodeDetails.VerifiedDate = util.Ptr(time.Now())
 		// Record the channel that successfully verified as the primary channel
 		if client.VerifyChannel != "" {
 			client.NodeDetails.PrimaryChannel = client.VerifyChannel
@@ -197,7 +198,7 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 	c.NodeDetails.LongName = user.LongName
 	c.NodeDetails.ShortName = user.ShortName
 	c.NodeDetails.NodeRole = user.Role.String()
-	c.NodeDetails.LastSeen = radio.Ptr(time.Now())
+	c.NodeDetails.LastSeen = util.Ptr(time.Now())
 
 	// Log if role changed (important for gateway validation)
 	if oldRole != "" && oldRole != c.NodeDetails.NodeRole {
@@ -217,7 +218,7 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 			go h.TryVerifyNode(c.ClientID, false)
 		} else {
 			if data.RequestId == c.VerifyPacketID {
-				c.NodeDetails.VerifiedDate = radio.Ptr(time.Now())
+				c.NodeDetails.VerifiedDate = util.Ptr(time.Now())
 				// Record the channel that successfully verified as the primary channel
 				if c.VerifyChannel != "" {
 					c.NodeDetails.PrimaryChannel = c.VerifyChannel
@@ -294,7 +295,7 @@ func (c *MeshtasticHook) insertUnknownHops(packet *pb.MeshPacket, disco *pb.Rout
 		diff := hopsTaken - len(disco.Route)
 		for i := 0; i < diff; i++ {
 			if len(disco.Route) < maxRouteSize {
-				disco.Route = append(disco.Route, meshtastic.BROADCAST_ID)
+				disco.Route = append(disco.Route, uint32(meshtastic.BroadcastNodeID))
 			}
 		}
 		// Pad SNR array to match route length
@@ -309,7 +310,7 @@ func (c *MeshtasticHook) insertUnknownHops(packet *pb.MeshPacket, disco *pb.Rout
 		diff := hopsTaken - len(disco.RouteBack)
 		for i := 0; i < diff; i++ {
 			if len(disco.RouteBack) < maxRouteSize {
-				disco.RouteBack = append(disco.RouteBack, meshtastic.BROADCAST_ID)
+				disco.RouteBack = append(disco.RouteBack, uint32(meshtastic.BroadcastNodeID))
 			}
 		}
 		// Pad SNR array to match route length

@@ -7,9 +7,10 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/radio"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
+	"github.com/kabili207/meshtastic-go/core/crypto"
+	"github.com/kabili207/meshtastic-go/core/lora"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -89,7 +90,7 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 		Emoji:     uint32(emojiVal),
 	}
 
-	if info.WantResponse && info.To != meshtastic.NodeID(meshtastic.BROADCAST_ID) && (info.PortNum == pb.PortNum_NODEINFO_APP || info.PortNum == pb.PortNum_POSITION_APP) {
+	if info.WantResponse && info.To != meshtastic.NodeID(meshtastic.BroadcastNodeID) && (info.PortNum == pb.PortNum_NODEINFO_APP || info.PortNum == pb.PortNum_POSITION_APP) {
 		data.WantResponse = true
 		bits := *data.Bitfield | uint32(BITFIELD_WantResponse)
 		data.Bitfield = &bits
@@ -107,9 +108,9 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 		return 0, err
 	}
 
-	key := radio.DefaultKey
+	key := crypto.DefaultKey
 
-	channelHash, _ := radio.ChannelHash(channel, key)
+	channelHash, _ := crypto.ChannelHash(channel, key)
 
 	maxHops := 0
 
@@ -125,7 +126,7 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 		RxSnr:    0,
 		RxRssi:   0,
 		Channel:  channelHash,
-		Priority: radio.GetPriority(&data, wantAck),
+		Priority: lora.GetPriority(&data, wantAck),
 		Delayed:  pb.MeshPacket_NO_DELAY,
 	}
 
@@ -136,7 +137,7 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 			Decoded: &data,
 		}
 	case PSKEncryption:
-		encodedBytes, err := radio.XOR(rawData, key, packetId, uint32(c.config.MeshSettings.SelfNode.NodeID))
+		encodedBytes, err := crypto.XOR(rawData, key, packetId, uint32(c.config.MeshSettings.SelfNode.NodeID))
 		if err != nil {
 			return packetId, err
 		}

@@ -13,10 +13,10 @@ import (
 	"github.com/mochi-mqtt/server/v2/packets"
 
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"google.golang.org/protobuf/proto"
 )
 

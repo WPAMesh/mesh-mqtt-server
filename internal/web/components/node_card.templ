@@ -18,7 +18,7 @@ func nodeValidationErrorsJSON(nodes []NodeData) string {
 
 // NodeCard renders a single node card
 templ NodeCard(node NodeData) {
-	<div class="node-card border rounded-2xl" style={ fmt.Sprintf("--node-color: rgb(%s); --node-color-bg: rgba(%s, 0.15);", getNodeColor(node), getNodeColor(node)) }>
+	<div class="node-card border rounded-2xl" style={ fmt.Sprintf("--node-color: %s; --node-color-bg: %s26;", getNodeColor(node), getNodeColor(node)) }>
 		<!-- Header -->
 		<div class="node-header">
 			<div class="node-header-left">
@@ -154,7 +154,7 @@ templ NodeTableRow(node NodeData, showUser bool) {
 		<!-- Mobile compact view (hidden on desktop) -->
 		<td class="mobile-only" colspan={ mobileColSpan(showUser) }>
 			<div class="compact-row-header">
-				<span class="node-badge-sm" style={ fmt.Sprintf("background-color: rgb(%s);", getNodeColor(node)) }>{ getShortName(node) }</span>
+				<span class="node-badge-sm" style={ fmt.Sprintf("background-color: %s;", getNodeColor(node)) }>{ getShortName(node) }</span>
 				<span class="node-name-compact">{ getLongName(node) }</span>
 				<div class="status-dots">
 					<span class={ connectionDotClass(node) } title={ connectionDotTitle(node) }></span>
@@ -320,7 +320,7 @@ func getNodeColor(node NodeData) string {
 	if node.NodeColor != "" {
 		return node.NodeColor
 	}
-	return "128, 128, 128"
+	return "#808080"
 }
 
 func getShortName(node NodeData) string {

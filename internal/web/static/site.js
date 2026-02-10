@@ -568,7 +568,7 @@ function renderNodeCards(nodes) {
 
   // Generate node cards HTML
   grid.innerHTML = nodes.map(node => {
-    const nodeColor = node.node_color || '128, 128, 128'; // Default gray
+    const nodeColor = node.node_color || '#808080'; // Default gray
     const shortName = node.short_name || '?';
     const longName = node.long_name || 'unknown';
     const nodeId = node.node_id || 'n/a';
@@ -589,7 +589,7 @@ function renderNodeCards(nodes) {
     }
 
     return `
-      <div class="node-card mg-border mg-rounded1" style="--node-color: rgb(${nodeColor}); --node-color-bg: rgba(${nodeColor}, 0.15);">
+      <div class="node-card mg-border mg-rounded1" style="--node-color: ${nodeColor}; --node-color-bg: ${nodeColor}26);">
         <!-- Header -->
         <div class="node-header">
           <div class="node-header-left">

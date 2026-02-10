@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	meshtastic "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 )
 
 const (
@@ -78,9 +78,9 @@ type ClientDetails struct {
 	VerifyChannel      string // Channel used for the current verification request
 	InvalidPackets     int
 	ValidGWChecker     func() bool
-	HasPublished       bool           // True if this non-mesh client has published to mesh topics
-	HasMissingOkToMqtt bool           // True if we detected packets from this gateway without OkToMQTT bit
-	OkToMqttStats      OkToMqttStats  // Stats tracking for OK to MQTT flag on gateway packets
+	HasPublished       bool          // True if this non-mesh client has published to mesh topics
+	HasMissingOkToMqtt bool          // True if we detected packets from this gateway without OkToMQTT bit
+	OkToMqttStats      OkToMqttStats // Stats tracking for OK to MQTT flag on gateway packets
 }
 
 type NodeInfo struct {
@@ -252,7 +252,7 @@ func (c *NodeInfo) GetDisplayName() string {
 	if c.LongName != "" {
 		return fmt.Sprintf("%s (%s)", c.LongName, c.ShortName)
 	}
-	long, short := c.NodeID.GetDefaultNodeNames()
+	long, short := c.NodeID.DefaultLongName(), c.NodeID.DefaultShortName()
 	return fmt.Sprintf("%s (%s)", long, short)
 }
 
@@ -260,7 +260,7 @@ func (c *NodeInfo) GetSafeLongName() string {
 	if c.LongName != "" {
 		return c.LongName
 	}
-	long, _ := c.NodeID.GetDefaultNodeNames()
+	long := c.NodeID.DefaultLongName()
 	return long
 }
 
@@ -268,7 +268,7 @@ func (c *NodeInfo) GetSafeShortName() string {
 	if c.ShortName != "" {
 		return c.ShortName
 	}
-	_, short := c.NodeID.GetDefaultNodeNames()
+	short := c.NodeID.DefaultShortName()
 	return short
 }
 
@@ -289,7 +289,5 @@ func (c *NodeInfo) IsExpiringSoon() bool {
 }
 
 func (n *NodeInfo) GetNodeColor() string {
-	r, g, b := n.NodeID.GetNodeColor()
-	return fmt.Sprintf("%d, %d, %d", r, g, b)
+	return n.NodeID.GetNodeColor()
 }
-

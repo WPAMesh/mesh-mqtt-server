@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
 	"golang.org/x/oauth2"
 )
 

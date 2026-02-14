@@ -78,6 +78,7 @@ type ClientDetails struct {
 	VerifyChannel      string // Channel used for the current verification request
 	InvalidPackets     int
 	ValidGWChecker     func() bool
+	IsBridgeClient     bool          // True if this is a MeshCore bridge client (meshcore-bridge-*)
 	HasPublished       bool          // True if this non-mesh client has published to mesh topics
 	HasMissingOkToMqtt bool          // True if we detected packets from this gateway without OkToMQTT bit
 	OkToMqttStats      OkToMqttStats // Stats tracking for OK to MQTT flag on gateway packets

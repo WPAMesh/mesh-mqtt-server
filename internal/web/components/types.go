@@ -44,6 +44,13 @@ type OtherClientData struct {
 	UserDisplay string `json:"user_display,omitempty"`
 }
 
+// BridgeClientData represents a MeshCore bridge client for display and API responses
+type BridgeClientData struct {
+	ClientID    string `json:"client_id"`
+	Address     string `json:"address"`
+	UserDisplay string `json:"user_display,omitempty"`
+}
+
 // MqttConfigData holds MQTT configuration for display
 type MqttConfigData struct {
 	ServerAddress string
@@ -64,6 +71,7 @@ type ChannelInfo struct {
 // MyNodesPageData holds all data for the my nodes page
 type MyNodesPageData struct {
 	Nodes          []NodeData
+	BridgeClients  []BridgeClientData
 	OtherClients   []OtherClientData
 	MqttConfig     *MqttConfigData
 	ShowOnboarding bool
@@ -73,6 +81,7 @@ type MyNodesPageData struct {
 // AllNodesPageData holds all data for the all nodes page
 type AllNodesPageData struct {
 	Nodes            []NodeData
+	BridgeClients    []BridgeClientData
 	OtherClients     []OtherClientData
 	IsSuperuser      bool
 	ForwardingStatus *ForwardingStatusData

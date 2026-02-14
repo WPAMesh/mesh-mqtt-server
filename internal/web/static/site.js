@@ -49,6 +49,13 @@ class NodeSSEManager {
         }
       });
 
+      this.eventSource.addEventListener('bridge-clients-update', (e) => {
+        const target = document.getElementById('bridge-clients-tbody');
+        if (target) {
+          target.innerHTML = e.data;
+        }
+      });
+
       this.eventSource.addEventListener('other-clients-update', (e) => {
         const target = document.getElementById('other-clients-tbody');
         if (target) {
@@ -501,6 +508,7 @@ async function loadNodes(isAdmin = false) {
       renderNodeCards(data.nodes);
     }
 
+    renderBridgeClientsTable(data.bridge_clients, isAdmin);
     renderOtherClientsTable(data.other_clients, isAdmin);
 
   } catch (error) {
@@ -514,6 +522,11 @@ async function loadNodes(isAdmin = false) {
       grid.innerHTML = '<div class="error-message">Error loading nodes</div>';
     } else if (tbody) {
       tbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '8' : '7') + '" class="error-message">Error loading nodes</td></tr>';
+    }
+
+    const bridgeTbody = document.getElementById('bridge-clients-tbody');
+    if (bridgeTbody) {
+      bridgeTbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '3' : '2') + '" class="error-message">Error loading clients</td></tr>';
     }
 
     const otherTbody = document.getElementById('other-clients-tbody');
@@ -674,6 +687,25 @@ function renderNodesTable(nodes, isAdmin) {
       </tr>
     `;
   }).join('');
+}
+
+function renderBridgeClientsTable(clients, isAdmin) {
+  const tbody = document.getElementById('bridge-clients-tbody');
+
+  if (!tbody) return;
+
+  if (!clients || clients.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + (isAdmin ? '3' : '2') + '"><i>No bridge clients</i></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = clients.map(client => `
+    <tr>
+      <td>${client.client_id}</td>
+      <td>${client.address || '<i>disconnected</i>'}</td>
+      ${isAdmin ? `<td>${client.user_display || ''}</td>` : ''}
+    </tr>
+  `).join('');
 }
 
 function renderOtherClientsTable(clients, isAdmin) {

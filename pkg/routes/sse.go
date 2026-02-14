@@ -108,7 +108,7 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Helper function to send nodes update
 	sendNodesUpdate := func() error {
-		nodes, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
+		nodes, bridgeClients, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
 
 		// Render the template to a buffer
 		var buf bytes.Buffer
@@ -126,6 +126,17 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 
 		// Send SSE event for nodes
 		_, err := fmt.Fprintf(w, "event: nodes-update\ndata: %s\n\n", escapeSSEData(buf.String()))
+		if err != nil {
+			return err
+		}
+
+		// Send bridge clients update
+		buf.Reset()
+		if err := components.BridgeClientsTableContent(bridgeClients, isAdmin).Render(ctx, &buf); err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "event: bridge-clients-update\ndata: %s\n\n", escapeSSEData(buf.String()))
 		if err != nil {
 			return err
 		}
@@ -191,8 +202,8 @@ func escapeSSEData(s string) string {
 	return result.String()
 }
 
-// getNodesData retrieves nodes and other clients data for display
-func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.OtherClientData) {
+// getNodesData retrieves nodes, bridge clients, and other clients data for display
+func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.BridgeClientData, []components.OtherClientData) {
 	var clients []*models.ClientDetails
 	if allUsers {
 		clients = wr.MqttServer.GetAllClients()
@@ -201,6 +212,7 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 	}
 
 	nodes := []components.NodeData{}
+	bridgeClients := []components.BridgeClientData{}
 	otherClients := []components.OtherClientData{}
 
 	knownNodes := []uint32{}
@@ -214,6 +226,15 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 		userDisplay := ""
 		if allUsers {
 			userDisplay = wr.getUserDisplay(c.MqttUserName)
+		}
+
+		if c.IsBridgeClient {
+			bridgeClients = append(bridgeClients, components.BridgeClientData{
+				ClientID:    c.ClientID,
+				Address:     ipAddr,
+				UserDisplay: userDisplay,
+			})
+			continue
 		}
 
 		if !c.IsMeshDevice() {
@@ -311,9 +332,10 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 
 	// Sort nodes and clients for consistent display order
 	components.SortNodes(nodes)
+	components.SortBridgeClients(bridgeClients)
 	components.SortOtherClients(otherClients)
 
-	return nodes, otherClients
+	return nodes, bridgeClients, otherClients
 }
 
 // nodesHTML returns HTML fragments for htmx requests
@@ -335,7 +357,7 @@ func (wr *WebRouter) nodesHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, _ := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
+	nodes, _, _ := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
 
 	w.Header().Set("Content-Type", "text/html")
 

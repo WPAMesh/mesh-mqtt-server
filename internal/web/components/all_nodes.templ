@@ -26,6 +26,9 @@ templ AllNodesPage(data AllNodesPageData) {
 				</div>
 				@NodesTable(data.Nodes, true)
 
+				<h3 class="mt-6">Bridge Clients</h3>
+				@BridgeClientsTable(data.BridgeClients, true)
+
 				<h3 class="mt-6">Other Connections</h3>
 				@OtherClientsTable(data.OtherClients, true)
 

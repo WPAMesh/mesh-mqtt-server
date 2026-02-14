@@ -18,6 +18,13 @@ func SortNodes(nodes []NodeData) {
 	})
 }
 
+// SortBridgeClients sorts a slice of BridgeClientData by ClientID
+func SortBridgeClients(clients []BridgeClientData) {
+	sort.Slice(clients, func(i, j int) bool {
+		return clients[i].ClientID < clients[j].ClientID
+	})
+}
+
 // SortOtherClients sorts a slice of OtherClientData by ClientID
 func SortOtherClients(clients []OtherClientData) {
 	sort.Slice(clients, func(i, j int) bool {

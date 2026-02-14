@@ -270,6 +270,50 @@ templ NodesTableContent(nodes []NodeData, showUser bool) {
 	}
 }
 
+// BridgeClientsTable renders a table of MeshCore bridge clients
+// SSE updates handled by vanilla JS
+templ BridgeClientsTable(clients []BridgeClientData, showUser bool) {
+	<table class="table--responsive" id="bridge-clients-table">
+		<thead>
+			<tr>
+				<th>Client ID</th>
+				<th>Address</th>
+				if showUser {
+					<th>User</th>
+				}
+			</tr>
+		</thead>
+		<tbody id="bridge-clients-tbody">
+			@BridgeClientsTableContent(clients, showUser)
+		</tbody>
+	</table>
+}
+
+// BridgeClientsTableContent renders just the bridge clients table content (for SSE updates)
+templ BridgeClientsTableContent(clients []BridgeClientData, showUser bool) {
+	if len(clients) == 0 {
+		<tr>
+			<td colspan={ otherClientsColSpan(showUser) }><i>No bridge clients</i></td>
+		</tr>
+	} else {
+		for _, client := range clients {
+			<tr>
+				<td>{ client.ClientID }</td>
+				<td>
+					if client.Address != "" {
+						{ client.Address }
+					} else {
+						<i>disconnected</i>
+					}
+				</td>
+				if showUser {
+					<td>{ client.UserDisplay }</td>
+				}
+			</tr>
+		}
+	}
+}
+
 // OtherClientsTable renders a table of other (non-mesh) clients
 // SSE updates handled by vanilla JS
 templ OtherClientsTable(clients []OtherClientData, showUser bool) {

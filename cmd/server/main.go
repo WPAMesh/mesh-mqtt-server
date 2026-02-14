@@ -121,11 +121,17 @@ func main() {
 	// Add custom hook (MeshtasticHook) to the server
 	meshHook := new(hooks.MeshtasticHook)
 
+	meshCoreTopicPrefix := config.MeshCore.TopicPrefix
+	if meshCoreTopicPrefix == "" {
+		meshCoreTopicPrefix = "meshcore"
+	}
+
 	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
-		Server:         server,
-		Storage:        storage,
-		MeshSettings:   config.MeshSettings,
-		ClientNotifier: clientNotifier,
+		Server:              server,
+		Storage:             storage,
+		MeshSettings:        config.MeshSettings,
+		ClientNotifier:      clientNotifier,
+		MeshCoreTopicPrefix: meshCoreTopicPrefix,
 	})
 
 	if err != nil {

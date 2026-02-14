@@ -48,6 +48,9 @@ templ MyNodesPage(data MyNodesPageData) {
 				<!-- Validation Errors Modal -->
 				@ValidationModal()
 
+				<h3 class="mt-6">Bridge Clients</h3>
+				@BridgeClientsTable(data.BridgeClients, false)
+
 				<h3 class="mt-6">Other Connections</h3>
 				@OtherClientsTable(data.OtherClients, false)
 			</div>

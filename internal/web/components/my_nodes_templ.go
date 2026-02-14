@@ -92,7 +92,15 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<h3 class=\"mt-6\">Other Connections</h3>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<h3 class=\"mt-6\">Bridge Clients</h3>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = BridgeClientsTable(data.BridgeClients, false).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<h3 class=\"mt-6\">Other Connections</h3>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -100,7 +108,7 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><!-- Store validation errors for JavaScript access --> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div><!-- Store validation errors for JavaScript access --> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -108,7 +116,7 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -118,7 +126,7 @@ func MyNodesPage(data MyNodesPageData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " <script>\n\t\t\t\twindow.isAdmin = false;\n\t\t\t</script>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <script>\n\t\t\t\twindow.isAdmin = false;\n\t\t\t</script>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -162,7 +170,7 @@ func ValidationModal() templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div id=\"validation-modal\" class=\"modal-overlay\"><div class=\"modal-content validation-modal-content\"><button class=\"modal-close\" onclick=\"closeValidationModal()\">&times;</button><h3 id=\"validation-modal-title\">Gateway Validation Errors</h3><div id=\"validation-modal-body\"><!-- Errors will be populated here --></div><div class=\"modal-actions\"><button class=\"btn btn-primary\" onclick=\"closeValidationModal()\">Close</button></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div id=\"validation-modal\" class=\"modal-overlay\"><div class=\"modal-content validation-modal-content\"><button class=\"modal-close\" onclick=\"closeValidationModal()\">&times;</button><h3 id=\"validation-modal-title\">Gateway Validation Errors</h3><div id=\"validation-modal-body\"><!-- Errors will be populated here --></div><div class=\"modal-actions\"><button class=\"btn btn-primary\" onclick=\"closeValidationModal()\">Close</button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -196,7 +204,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div id=\"onboarding-modal\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div id=\"onboarding-modal\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -209,7 +217,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"><div class=\"modal-content onboarding-content\"><button class=\"modal-close\" onclick=\"closeOnboarding()\">&times;</button><!-- Wizard Header --><div class=\"wizard-header text-center\"><h2>Setup Wizard</h2><p>Let's configure your Meshtastic device step by step</p></div><!-- Progress Indicator --><div class=\"wizard-progress pt-6\"><div class=\"wizard-steps flex justify-between\"><div class=\"wizard-step active\" data-step=\"1\"><div class=\"step-circle\">1</div><div class=\"step-label text-sm\">Password</div></div><div class=\"wizard-step\" data-step=\"2\"><div class=\"step-circle\">2</div><div class=\"step-label text-sm\">Credentials</div></div><div class=\"wizard-step\" data-step=\"3\"><div class=\"step-circle\">3</div><div class=\"step-label text-sm\">MQTT</div></div><div class=\"wizard-step\" data-step=\"4\"><div class=\"step-circle\">4</div><div class=\"step-label text-sm\">Topic</div></div><div class=\"wizard-step\" data-step=\"5\"><div class=\"step-circle\">5</div><div class=\"step-label text-sm\">LoRa</div></div><div class=\"wizard-step\" data-step=\"6\"><div class=\"step-circle\">6</div><div class=\"step-label text-sm\">Channels</div></div></div><div class=\"progress-bar-container mt-4\"><div class=\"progress-bar-fill\" id=\"wizard-progress-fill\"></div></div></div><!-- Wizard Body --><div class=\"wizard-body pt-10\"><!-- Step 1: Set Password -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"><div class=\"modal-content onboarding-content\"><button class=\"modal-close\" onclick=\"closeOnboarding()\">&times;</button><!-- Wizard Header --><div class=\"wizard-header text-center\"><h2>Setup Wizard</h2><p>Let's configure your Meshtastic device step by step</p></div><!-- Progress Indicator --><div class=\"wizard-progress pt-6\"><div class=\"wizard-steps flex justify-between\"><div class=\"wizard-step active\" data-step=\"1\"><div class=\"step-circle\">1</div><div class=\"step-label text-sm\">Password</div></div><div class=\"wizard-step\" data-step=\"2\"><div class=\"step-circle\">2</div><div class=\"step-label text-sm\">Credentials</div></div><div class=\"wizard-step\" data-step=\"3\"><div class=\"step-circle\">3</div><div class=\"step-label text-sm\">MQTT</div></div><div class=\"wizard-step\" data-step=\"4\"><div class=\"step-circle\">4</div><div class=\"step-label text-sm\">Topic</div></div><div class=\"wizard-step\" data-step=\"5\"><div class=\"step-circle\">5</div><div class=\"step-label text-sm\">LoRa</div></div><div class=\"wizard-step\" data-step=\"6\"><div class=\"step-circle\">6</div><div class=\"step-label text-sm\">Channels</div></div></div><div class=\"progress-bar-container mt-4\"><div class=\"progress-bar-fill\" id=\"wizard-progress-fill\"></div></div></div><!-- Wizard Body --><div class=\"wizard-body pt-10\"><!-- Step 1: Set Password -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -217,7 +225,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<!-- Step 2: MQTT Credentials -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<!-- Step 2: MQTT Credentials -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -225,7 +233,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<!-- Step 3: MQTT Settings -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- Step 3: MQTT Settings -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -233,7 +241,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- Step 4: Root Topic -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- Step 4: Root Topic -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -241,7 +249,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- Step 5: LoRa Settings -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<!-- Step 5: LoRa Settings -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -249,7 +257,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<!-- Step 6: Channel Configuration -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<!-- Step 6: Channel Configuration -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -257,7 +265,7 @@ func OnboardingModal(mqttConfig *MqttConfigData, showOnboarding bool) templ.Comp
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div><!-- Wizard Navigation --><div class=\"wizard-navigation pt-8 pb-4\"><button class=\"btn wizard-btn-prev\" onclick=\"wizardPrevStep()\" style=\"visibility: hidden;\">Previous</button> <button class=\"btn btn-primary wizard-btn-next\" id=\"wizard-next-btn\" onclick=\"wizardNextStep()\">Next</button> <button class=\"btn btn-primary wizard-btn-finish\" onclick=\"closeOnboarding()\" style=\"display: none;\">Finish</button></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><!-- Wizard Navigation --><div class=\"wizard-navigation pt-8 pb-4\"><button class=\"btn wizard-btn-prev\" onclick=\"wizardPrevStep()\" style=\"visibility: hidden;\">Previous</button> <button class=\"btn btn-primary wizard-btn-next\" id=\"wizard-next-btn\" onclick=\"wizardNextStep()\">Next</button> <button class=\"btn btn-primary wizard-btn-finish\" onclick=\"closeOnboarding()\" style=\"display: none;\">Finish</button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -286,7 +294,7 @@ func WizardStep1() templ.Component {
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div class=\"wizard-step-content active\" data-step=\"1\"><h3 class=\"mb-4\">Set Your MQTT Password</h3><p class=\"mb-6\">Choose a secure password for your MQTT connection (minimum 8 characters):</p><div class=\"password-form\"><input type=\"password\" id=\"mqtt-password\" placeholder=\"Enter password\" class=\"input-field mb-4\"> <input type=\"password\" id=\"mqtt-password-confirm\" placeholder=\"Confirm password\" class=\"input-field mb-4\"><div id=\"password-message\" class=\"message\"></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"wizard-step-content active\" data-step=\"1\"><h3 class=\"mb-4\">Set Your MQTT Password</h3><p class=\"mb-6\">Choose a secure password for your MQTT connection (minimum 8 characters):</p><div class=\"password-form\"><input type=\"password\" id=\"mqtt-password\" placeholder=\"Enter password\" class=\"input-field mb-4\"> <input type=\"password\" id=\"mqtt-password-confirm\" placeholder=\"Confirm password\" class=\"input-field mb-4\"><div id=\"password-message\" class=\"message\"></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -315,20 +323,20 @@ func WizardStep2(mqttConfig *MqttConfigData) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"wizard-step-content\" data-step=\"2\" style=\"display: none;\"><h3 class=\"mb-4\">Your MQTT Credentials</h3><p class=\"mb-6\">Use these credentials to configure your Meshtastic device:</p><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Server Address</label><div class=\"copy-field\"><code>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"wizard-step-content\" data-step=\"2\" style=\"display: none;\"><h3 class=\"mb-4\">Your MQTT Credentials</h3><p class=\"mb-6\">Use these credentials to configure your Meshtastic device:</p><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Server Address</label><div class=\"copy-field\"><code>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(mqttConfig.ServerAddress)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 177, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 180, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</code> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</code> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -336,7 +344,7 @@ func WizardStep2(mqttConfig *MqttConfigData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -345,20 +353,20 @@ func WizardStep2(mqttConfig *MqttConfigData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\">Copy</button></div></div><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Username</label><div class=\"copy-field\"><code>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\">Copy</button></div></div><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Username</label><div class=\"copy-field\"><code>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(mqttConfig.Username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 184, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 187, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</code> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</code> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -366,7 +374,7 @@ func WizardStep2(mqttConfig *MqttConfigData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -375,7 +383,7 @@ func WizardStep2(mqttConfig *MqttConfigData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">Copy</button></div></div><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Password</label><div class=\"copy-field\"><code id=\"user-password\">Your chosen password</code></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">Copy</button></div></div><div class=\"credential-box mb-6\"><label class=\"font-bold mb-2\">Password</label><div class=\"copy-field\"><code id=\"user-password\">Your chosen password</code></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -404,7 +412,7 @@ func WizardStep3() templ.Component {
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<div class=\"wizard-step-content\" data-step=\"3\" style=\"display: none;\"><h3 class=\"mb-4\">MQTT Module Settings</h3><p class=\"mb-6\">Configure these settings in your Meshtastic MQTT module:</p><div class=\"settings-grid\"><div class=\"setting-item\"><span class=\"setting-label\">Encryption:</span> <span class=\"setting-value\">Enabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">TLS:</span> <span class=\"setting-value\">Disabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">JSON:</span> <span class=\"setting-value\">Disabled</span></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"wizard-step-content\" data-step=\"3\" style=\"display: none;\"><h3 class=\"mb-4\">MQTT Module Settings</h3><p class=\"mb-6\">Configure these settings in your Meshtastic MQTT module:</p><div class=\"settings-grid\"><div class=\"setting-item\"><span class=\"setting-label\">Encryption:</span> <span class=\"setting-value\">Enabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">TLS:</span> <span class=\"setting-value\">Disabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">JSON:</span> <span class=\"setting-value\">Disabled</span></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -433,20 +441,20 @@ func WizardStep4(mqttConfig *MqttConfigData) templ.Component {
 			templ_7745c5c3_Var15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"wizard-step-content\" data-step=\"4\" style=\"display: none;\"><h3 class=\"mb-4\">Choose Your Node Role</h3><p class=\"mb-6\">Select the role that best describes how you'll use your node:</p><div class=\"topic-selection\"><label class=\"topic-radio-option\"><input type=\"radio\" name=\"node-role\" value=\"standard\" checked onchange=\"updateTopicSelection('standard')\"><div class=\"topic-radio-content\"><div class=\"topic-radio-header\"><i class=\"fas fa-mobile-alt\"></i><h4>Standard Node</h4></div><p class=\"topic-radio-description\">For mobile devices and nodes within RF range of the mesh</p><ul class=\"topic-radio-details\"><li>Mobile devices (phone, vehicle, portable)</li><li>Within RF range of existing mesh nodes</li><li>Already seeing nodes from MQTT</li><li>No consistent location or internet connection</li></ul></div></label> <label class=\"topic-radio-option\"><input type=\"radio\" name=\"node-role\" value=\"gateway\" onchange=\"updateTopicSelection('gateway')\"><div class=\"topic-radio-content\"><div class=\"topic-radio-header\"><i class=\"fas fa-tower-broadcast\"></i><h4>Gateway Node</h4></div><p class=\"topic-radio-description\">For fixed location nodes bridging distant or isolated mesh regions</p><ul class=\"topic-radio-details\"><li>Fixed location with reliable power &amp; internet</li><li>Positioned to bridge between regions</li><li>Connected to many nodes (directly or 1 hop)</li><li>Alternatively, very few other nodes via RF in your area</li></ul><div class=\"gateway-warning-compact\"><i class=\"fas fa-exclamation-triangle\"></i> Gateway nodes must pass validation checks.<br>Failed nodes are auto-redirected to standard topic.</div></div></label></div><div class=\"selected-topic-display mt-6\"><h4 class=\"mb-4\">Your Root Topic:</h4><div class=\"credential-box\"><div class=\"copy-field\"><code id=\"selected-topic\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"wizard-step-content\" data-step=\"4\" style=\"display: none;\"><h3 class=\"mb-4\">Choose Your Node Role</h3><p class=\"mb-6\">Select the role that best describes how you'll use your node:</p><div class=\"topic-selection\"><label class=\"topic-radio-option\"><input type=\"radio\" name=\"node-role\" value=\"standard\" checked onchange=\"updateTopicSelection('standard')\"><div class=\"topic-radio-content\"><div class=\"topic-radio-header\"><i class=\"fas fa-mobile-alt\"></i><h4>Standard Node</h4></div><p class=\"topic-radio-description\">For mobile devices and nodes within RF range of the mesh</p><ul class=\"topic-radio-details\"><li>Mobile devices (phone, vehicle, portable)</li><li>Within RF range of existing mesh nodes</li><li>Already seeing nodes from MQTT</li><li>No consistent location or internet connection</li></ul></div></label> <label class=\"topic-radio-option\"><input type=\"radio\" name=\"node-role\" value=\"gateway\" onchange=\"updateTopicSelection('gateway')\"><div class=\"topic-radio-content\"><div class=\"topic-radio-header\"><i class=\"fas fa-tower-broadcast\"></i><h4>Gateway Node</h4></div><p class=\"topic-radio-description\">For fixed location nodes bridging distant or isolated mesh regions</p><ul class=\"topic-radio-details\"><li>Fixed location with reliable power &amp; internet</li><li>Positioned to bridge between regions</li><li>Connected to many nodes (directly or 1 hop)</li><li>Alternatively, very few other nodes via RF in your area</li></ul><div class=\"gateway-warning-compact\"><i class=\"fas fa-exclamation-triangle\"></i> Gateway nodes must pass validation checks.<br>Failed nodes are auto-redirected to standard topic.</div></div></label></div><div class=\"selected-topic-display mt-6\"><h4 class=\"mb-4\">Your Root Topic:</h4><div class=\"credential-box\"><div class=\"copy-field\"><code id=\"selected-topic\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(mqttConfig.RootTopic)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 266, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 269, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</code> <button class=\"copy-btn btn btn-sm\" onclick=\"copySelectedTopic()\">Copy</button></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</code> <button class=\"copy-btn btn btn-sm\" onclick=\"copySelectedTopic()\">Copy</button></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -475,7 +483,7 @@ func WizardStep5() templ.Component {
 			templ_7745c5c3_Var17 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"wizard-step-content\" data-step=\"5\" style=\"display: none;\"><h3 class=\"mb-4\">LoRa Settings</h3><p class=\"mb-6\">Configure these settings in your Meshtastic LoRa module:</p><div class=\"settings-grid\"><div class=\"setting-item\"><span class=\"setting-label\">OK to MQTT:</span> <span class=\"setting-value\">Enabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">Ignore MQTT:</span> <span class=\"setting-value\">Disabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">Hop Limit:</span> <span class=\"setting-value\">5 (recommended)</span></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"wizard-step-content\" data-step=\"5\" style=\"display: none;\"><h3 class=\"mb-4\">LoRa Settings</h3><p class=\"mb-6\">Configure these settings in your Meshtastic LoRa module:</p><div class=\"settings-grid\"><div class=\"setting-item\"><span class=\"setting-label\">OK to MQTT:</span> <span class=\"setting-value\">Enabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">Ignore MQTT:</span> <span class=\"setting-value\">Disabled</span></div><div class=\"setting-item\"><span class=\"setting-label\">Hop Limit:</span> <span class=\"setting-value\">5 (recommended)</span></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -504,39 +512,39 @@ func WizardStep6(mqttConfig *MqttConfigData) templ.Component {
 			templ_7745c5c3_Var18 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"wizard-step-content\" data-step=\"6\" style=\"display: none;\"><h3 class=\"mb-4\">Channel Configuration</h3><p class=\"mb-6\">Configure these channels in your Meshtastic device:</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"wizard-step-content\" data-step=\"6\" style=\"display: none;\"><h3 class=\"mb-4\">Channel Configuration</h3><p class=\"mb-6\">Configure these channels in your Meshtastic device:</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, ch := range mqttConfig.Channels {
 			if ch.Export {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"channel-box mb-6\"><h4>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"channel-box mb-6\"><h4>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(ch.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 302, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 305, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</h4><div class=\"credential-box mb-4\"><label class=\"font-bold mb-2\">PSK (Pre-Shared Key)</label><div class=\"copy-field\"><code class=\"psk-code\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</h4><div class=\"credential-box mb-4\"><label class=\"font-bold mb-2\">PSK (Pre-Shared Key)</label><div class=\"copy-field\"><code class=\"psk-code\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(ch.PSK)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 306, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/my_nodes.templ`, Line: 309, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</code> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</code> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -544,7 +552,7 @@ func WizardStep6(mqttConfig *MqttConfigData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<button class=\"copy-btn btn btn-sm\" onclick=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -553,28 +561,28 @@ func WizardStep6(mqttConfig *MqttConfigData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\">Copy</button></div></div><div class=\"channel-settings\"><span><strong>Uplink:</strong> Enabled</span> <span><strong>Downlink:</strong> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\">Copy</button></div></div><div class=\"channel-settings\"><span><strong>Uplink:</strong> Enabled</span> <span><strong>Downlink:</strong> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if ch.Name == "LongFast" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "Enabled (for Gateways)")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "Enabled (for Gateways)")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "Enabled")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "Enabled")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</span></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</span></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

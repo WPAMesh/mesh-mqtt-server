@@ -23,6 +23,7 @@ import (
 const (
 	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
 	unknownProxyPattern = `^Meshtastic(Android|Apple)MqttProxy-(.+)$`
+	bridgeClientPattern = `^meshcore-bridge-.+$`
 	channelPattern      = `^(msh(?:\/[^\/\n]+?)*)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
 	gatewayTopicPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/([^/]+)\/(![a-f0-9]{8})$`
 
@@ -39,6 +40,7 @@ const (
 var (
 	meshDeviceRegex     = regexp.MustCompile(meshDevicePattern)
 	unknownProxyRegex   = regexp.MustCompile(unknownProxyPattern)
+	bridgeClientRegex   = regexp.MustCompile(bridgeClientPattern)
 	channelRegex        = regexp.MustCompile(channelPattern)
 	gatewayTopicRegex   = regexp.MustCompile(gatewayTopicPattern)
 	gatewayPublishRegex = regexp.MustCompile(gatewayPublishPattern)
@@ -66,10 +68,11 @@ type ClientChangeNotifier interface {
 
 // Options contains configuration settings for the hook.
 type MeshtasticHookOptions struct {
-	Server         *mqtt.Server
-	Storage        *store.Stores
-	MeshSettings   config.MeshSettings
-	ClientNotifier ClientChangeNotifier
+	Server              *mqtt.Server
+	Storage             *store.Stores
+	MeshSettings        config.MeshSettings
+	ClientNotifier      ClientChangeNotifier
+	MeshCoreTopicPrefix string // Topic prefix for MeshCore bridge clients (default: "meshcore")
 }
 
 var _ models.MeshMqttServer = (*MeshtasticHook)(nil)
@@ -238,6 +241,7 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 	if validatedUser != nil {
 
 		nodeDetails, proxyType := (*models.NodeInfo)(nil), ""
+		isBridge := false
 		if meshDeviceRegex.MatchString(cl.ID) {
 			matches := meshDeviceRegex.FindStringSubmatch(cl.ID)
 			proxyType = matches[1]
@@ -254,6 +258,8 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 			matches := unknownProxyRegex.FindStringSubmatch(cl.ID)
 			proxyType = matches[1]
 			//nodeID = matches[2]
+		} else if bridgeClientRegex.MatchString(cl.ID) {
+			isBridge = true
 		}
 
 		h.clientLock.Lock()
@@ -263,6 +269,7 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 			UserID:         validatedUser.ID,
 			NodeDetails:    nodeDetails,
 			ProxyType:      proxyType,
+			IsBridgeClient: isBridge,
 			Address:        cl.Net.Remote,
 			ValidGWChecker: h.makeGatewayValidator(validatedUser.ID),
 		}
@@ -271,6 +278,8 @@ func (h *MeshtasticHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packe
 		if nodeDetails != nil {
 			h.Log.Info("client authenticated", "username", user, "client", clientID, "node", nodeDetails.GetDisplayName(), "proxy", proxyType)
 			go h.TryVerifyNode(cl.ID, false)
+		} else if isBridge {
+			h.Log.Info("bridge client authenticated", "username", user, "client", clientID)
 		} else {
 			h.Log.Info("client authenticated", "username", user, "client", clientID, "proxy", proxyType)
 		}
@@ -327,6 +336,17 @@ func (h *MeshtasticHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) b
 				"topic", topic)
 		}
 		return isSU
+	}
+
+	// Bridge clients are restricted to meshcore/* topics only
+	if cd.IsBridgeClient {
+		mcPrefix := h.config.MeshCoreTopicPrefix + "/"
+		if strings.HasPrefix(topic, mcPrefix) {
+			return true
+		}
+		h.Log.Debug("bridge client denied access to non-meshcore topic",
+			"client", cl.ID, "topic", topic)
+		return false
 	}
 
 	if !cd.IsMeshDevice() {

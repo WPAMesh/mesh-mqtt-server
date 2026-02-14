@@ -197,13 +197,14 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, otherClients := wr.getNodesData(user, false, true, false)
+	nodes, bridgeClients, otherClients := wr.getNodesData(user, false, true, false)
 
 	mqttConfig := wr.getTemplMqttConfig(r, user)
 	showOnboarding := user.PasswordHash == "" // Show onboarding if no password set
 
 	pageData := components.MyNodesPageData{
 		Nodes:          nodes,
+		BridgeClients:  bridgeClients,
 		OtherClients:   otherClients,
 		MqttConfig:     mqttConfig,
 		ShowOnboarding: showOnboarding,
@@ -228,10 +229,11 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, otherClients := wr.getNodesData(user, true, true, false)
+	nodes, bridgeClients, otherClients := wr.getNodesData(user, true, true, false)
 
 	pageData := components.AllNodesPageData{
 		Nodes:            nodes,
+		BridgeClients:    bridgeClients,
 		OtherClients:     otherClients,
 		IsSuperuser:      true,
 		ForwardingStatus: wr.getForwardingStatusData(),
@@ -316,8 +318,9 @@ type SetPasswordResponse struct {
 }
 
 type NodesResponse struct {
-	Nodes        []components.NodeData        `json:"nodes"`
-	OtherClients []components.OtherClientData `json:"other_clients"`
+	Nodes         []components.NodeData         `json:"nodes"`
+	BridgeClients []components.BridgeClientData `json:"bridge_clients"`
+	OtherClients  []components.OtherClientData  `json:"other_clients"`
 }
 
 func (wr *WebRouter) setMqttPassword(w http.ResponseWriter, r *http.Request) {
@@ -390,6 +393,7 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodes := []components.NodeData{}
+	bridgeClients := []components.BridgeClientData{}
 	otherClients := []components.OtherClientData{}
 
 	knownNodes := []uint32{}
@@ -404,6 +408,15 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 		userDisplay := ""
 		if allUsers {
 			userDisplay = wr.getUserDisplay(c.MqttUserName)
+		}
+
+		if c.IsBridgeClient {
+			bridgeClients = append(bridgeClients, components.BridgeClientData{
+				ClientID:    c.ClientID,
+				Address:     ipAddr,
+				UserDisplay: userDisplay,
+			})
+			continue
 		}
 
 		if !c.IsMeshDevice() {
@@ -503,12 +516,14 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 
 	// Sort nodes and clients for consistent display order
 	components.SortNodes(nodes)
+	components.SortBridgeClients(bridgeClients)
 	components.SortOtherClients(otherClients)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(NodesResponse{
-		Nodes:        nodes,
-		OtherClients: otherClients,
+		Nodes:         nodes,
+		BridgeClients: bridgeClients,
+		OtherClients:  otherClients,
 	})
 }
 

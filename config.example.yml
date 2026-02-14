@@ -1,0 +1,128 @@
+# =============================================================================
+# Mesh MQTT Server - Example Configuration
+# =============================================================================
+# Copy this file to config.yml and adjust values for your deployment.
+# All sections are optional unless noted otherwise.
+
+# Address the web UI listens on (default: ":8000")
+listenAddr: ":8000"
+
+# Public-facing URL for OAuth callbacks and links
+baseURL: "http://localhost:8000"
+
+# Secret used for session cookies (change this to a random string)
+sessionSecret: "change-me-to-a-random-secret"
+
+# =============================================================================
+# Database (PostgreSQL) - REQUIRED
+# =============================================================================
+database:
+  host: "localhost:5432"
+  db: mesht_mqtt
+  user: mesht_mqtt
+  password: "your-database-password"
+
+# =============================================================================
+# OAuth (Discord) - Required for web UI authentication
+# =============================================================================
+oauth:
+  discord:
+    clientId: "your-discord-client-id"
+    clientSecret: "your-discord-client-secret"
+
+# =============================================================================
+# Meshtastic Settings
+# =============================================================================
+meshSettings:
+  # MQTT topic root for Meshtastic messages (e.g., "msh/US", "msh/EU")
+  mqttRoot: msh/US
+
+  # Identity this server uses when sending packets to the mesh
+  selfNode:
+    nodeID: "!aabbccdd"
+    longName: "My MQTT Server"
+    shortName: "MQTT"
+
+  # Meshtastic channel definitions
+  # Each channel needs a name and its PSK (base64-encoded).
+  # "AQ==" is the default key for standard channels like LongFast.
+  # Set export: true to include the channel in data exports.
+  channels:
+    - name: LongFast
+      key: "AQ=="
+      export: true
+    - name: MediumFast
+      key: "AQ=="
+      export: false
+    # Example custom channel with a unique PSK:
+    # - name: MyPrivateChannel
+    #   key: "base64-encoded-psk-here"
+    #   export: true
+
+  # Ordered list of channel names to try when verifying a node's downlink.
+  # The server tries each channel until it gets a response, then remembers
+  # which channel worked for that node.
+  # verificationChannels:
+  #   - LongFast
+  #   - MediumFast
+
+# =============================================================================
+# MeshCore Protocol Support
+# =============================================================================
+# Enables processing of MeshCore protocol packets received via MQTT.
+# MeshCore bridge clients (client ID: meshcore-bridge-*) publish base64-encoded
+# packets to {topicPrefix}/{mesh_id} topics.
+meshCore:
+  enabled: false
+  # MQTT topic prefix for MeshCore packets (default: "meshcore")
+  # topicPrefix: meshcore
+
+# =============================================================================
+# Meshtastic <-> MeshCore Bridge
+# =============================================================================
+# Bridges text messages between Meshtastic and MeshCore networks.
+# Requires meshCore.enabled to be true.
+bridge:
+  enabled: false
+
+  # Prefix prepended to messages bridged TO MeshCore (so MeshCore users
+  # can see the message originated from Meshtastic)
+  meshtasticPrefix: "[MT] "
+
+  # Prefix prepended to messages bridged TO Meshtastic (so Meshtastic users
+  # can see the message originated from MeshCore)
+  meshCorePrefix: "[MC] "
+
+  # When true, attempts to extract sender name from "Name: message" format
+  # in MeshCore messages
+  parseSenderName: true
+
+  # Channel mappings define which Meshtastic channels are bridged to which
+  # MeshCore mesh IDs. Each mapping can optionally specify a direction.
+  channelMappings:
+    - meshtasticChannel: LongFast           # Meshtastic channel name
+      meshtasticTopicRoot: msh/US           # MQTT topic root for this channel
+      meshCoreMeshID: my-bridge             # MeshCore mesh ID
+      meshCoreChannelKey: "base64-key=="    # Shared encryption key (base64)
+      direction: both                       # "both", "mt_to_mc", or "mc_to_mt"
+
+# =============================================================================
+# MQTT Forwarding
+# =============================================================================
+# Forward MQTT packets to one or more external MQTT brokers.
+# Useful for relaying to the public Meshtastic MQTT server or other brokers.
+forwarding:
+  enabled: false
+  targets:
+    - name: "meshtastic-public"
+      address: "mqtt.meshtastic.org:1883"
+      username: meshdev
+      password: large4cats
+      useTLS: false
+      # clientID: "my-custom-client-id"    # Auto-generated if empty
+      topics:
+        - "msh/#"
+      # Rewrite topic prefixes before forwarding.
+      # Key is the prefix to match, value is the replacement.
+      # topicRewrites:
+      #   "msh/US/2/e": "msh/US/PA/MyRegion/2/e"

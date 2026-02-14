@@ -18,8 +18,8 @@ import (
 
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/meshcore/codec"
-	pb "github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/generated"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshtastic/radio"
+	"github.com/kabili207/meshtastic-go/core/crypto"
+	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
@@ -123,7 +123,7 @@ func (h *BridgeHook) Init(config any) error {
 		}
 
 		// Parse MeshCore channel key
-		mcKey, err := radio.ParseKey(mapping.MeshCoreChannelKey)
+		mcKey, err := crypto.ParseKey(mapping.MeshCoreChannelKey)
 		if err != nil {
 			h.Log.Error("failed to parse MeshCore channel key",
 				"meshtastic_channel", mapping.MeshtasticChannel,
@@ -141,7 +141,7 @@ func (h *BridgeHook) Init(config any) error {
 			continue
 		}
 		idx.meshtasticKey = mtKey
-		mtHash, _ := radio.ChannelHash(mapping.MeshtasticChannel, mtKey)
+		mtHash, _ := crypto.ChannelHash(mapping.MeshtasticChannel, mtKey)
 		idx.meshtasticHash = mtHash
 
 		// Index by Meshtastic topic root + channel
@@ -276,9 +276,9 @@ func (h *BridgeHook) getMeshtasticKey(channelName string) []byte {
 	for _, ch := range h.config.MeshSettings.Channels {
 		if ch.Name == channelName {
 			if ch.Key == "" {
-				return radio.DefaultKey
+				return crypto.DefaultKey
 			}
-			key, err := radio.ParseKey(ch.Key)
+			key, err := crypto.ParseKey(ch.Key)
 			if err != nil {
 				return nil
 			}
@@ -287,7 +287,7 @@ func (h *BridgeHook) getMeshtasticKey(channelName string) []byte {
 	}
 	// Default to LongFast with default key
 	if channelName == "LongFast" || channelName == "LongSlow" || channelName == "VLongSlow" {
-		return radio.DefaultKey
+		return crypto.DefaultKey
 	}
 	return nil
 }
@@ -399,7 +399,7 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 	}
 
 	// Decrypt the packet
-	data, err := radio.TryDecode(packet, idx.meshtasticKey)
+	data, err := crypto.TryDecode(packet, idx.meshtasticKey)
 	if err != nil {
 		h.Log.Debug("failed to decrypt Meshtastic packet", "error", err)
 		return
@@ -655,7 +655,7 @@ func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string, 
 		fromNode = virtualNodeID
 	}
 
-	encrypted, err := radio.XOR(rawData, idx.meshtasticKey, packetID, fromNode)
+	encrypted, err := crypto.XOR(rawData, idx.meshtasticKey, packetID, fromNode)
 	if err != nil {
 		h.Log.Error("failed to encrypt Meshtastic packet", "error", err)
 		return
@@ -790,7 +790,7 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 
 	// Encrypt
 	packetID := h.generatePacketID()
-	encrypted, err := radio.XOR(rawData, idx.meshtasticKey, packetID, virtualNodeID)
+	encrypted, err := crypto.XOR(rawData, idx.meshtasticKey, packetID, virtualNodeID)
 	if err != nil {
 		h.Log.Error("failed to encrypt virtual node NODEINFO", "error", err)
 		return

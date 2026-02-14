@@ -72,28 +72,19 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 		return pk, nil
 	}
 
-	// Check if topic matches MeshCore pattern: {prefix}/{mesh_id}/rx or {prefix}/{mesh_id}/tx
+	// Check if topic matches MeshCore pattern: {prefix}/{mesh_id}
 	prefix := h.config.Settings.TopicPrefix + "/"
 	if !strings.HasPrefix(pk.TopicName, prefix) {
 		return pk, nil
 	}
 
-	// Extract the suffix after prefix
-	suffix := pk.TopicName[len(prefix):]
-	parts := strings.Split(suffix, "/")
-	if len(parts) < 2 {
+	// Extract mesh ID after prefix
+	meshID := pk.TopicName[len(prefix):]
+	if meshID == "" {
 		return pk, nil
 	}
 
-	meshID := parts[0]
-	direction := parts[len(parts)-1]
-
-	// Only process rx and tx topics
-	if direction != "rx" && direction != "tx" {
-		return pk, nil
-	}
-
-	// Decode base64 payload
+	// Decode base64 payload (raw MeshCore packet, not RS232 framed)
 	rawData, err := base64.StdEncoding.DecodeString(string(pk.Payload))
 	if err != nil {
 		h.Log.Debug("failed to decode base64 payload",
@@ -102,19 +93,9 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 		return pk, nil
 	}
 
-	// Decode RS232 frame
-	frame, _, err := codec.DecodeRS232Frame(rawData)
-	if err != nil {
-		h.Log.Debug("failed to decode RS232 frame",
-			"topic", pk.TopicName,
-			"mesh_id", meshID,
-			"error", err)
-		return pk, nil
-	}
-
-	// Parse MeshCore packet
+	// Parse MeshCore packet directly from decoded bytes
 	var packet codec.Packet
-	if err := packet.ReadFrom(frame.Payload); err != nil {
+	if err := packet.ReadFrom(rawData); err != nil {
 		h.Log.Debug("failed to parse MeshCore packet",
 			"topic", pk.TopicName,
 			"mesh_id", meshID,
@@ -125,7 +106,6 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 	// Log packet summary
 	h.Log.Debug("MeshCore packet received",
 		"mesh_id", meshID,
-		"direction", direction,
 		"route_type", codec.RouteTypeName(packet.RouteType()),
 		"payload_type", codec.PayloadTypeName(packet.PayloadType()),
 		"path_len", packet.PathLen,

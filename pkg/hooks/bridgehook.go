@@ -34,8 +34,8 @@ const (
 var (
 	// Regex to match Meshtastic channel topics: msh/{root}/2/e/{channel}/{gateway}
 	meshtasticTopicRegex = regexp.MustCompile(`^(msh(?:/[^/]+)*)/2/e/([^/]+)/(![a-f0-9]{8})$`)
-	// Regex to match MeshCore topics: meshcore/{mesh_id}/rx or /tx
-	meshCoreTopicRegex = regexp.MustCompile(`^meshcore/([^/]+)/(rx|tx)$`)
+	// Regex to match MeshCore topics: meshcore/{mesh_id}
+	meshCoreTopicRegex = regexp.MustCompile(`^meshcore/([^/]+)$`)
 )
 
 // BridgeHookOptions contains configuration for the bridge hook.
@@ -347,9 +347,7 @@ func (h *BridgeHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 
 	// Try MeshCore topic
 	if matches := meshCoreTopicRegex.FindStringSubmatch(pk.TopicName); len(matches) > 0 {
-		if matches[2] == "rx" { // Only bridge received messages
-			h.handleMeshCoreMessage(pk, matches[1])
-		}
+		h.handleMeshCoreMessage(pk, matches[1])
 		return pk, nil
 	}
 
@@ -448,23 +446,16 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 
 // handleMeshCoreMessage processes a MeshCore message and bridges to Meshtastic.
 func (h *BridgeHook) handleMeshCoreMessage(pk packets.Packet, meshID string) {
-	// Decode base64 payload
+	// Decode base64 payload (raw MeshCore packet, not RS232 framed)
 	rawData, err := base64.StdEncoding.DecodeString(string(pk.Payload))
 	if err != nil {
 		h.Log.Debug("failed to decode base64 payload", "error", err)
 		return
 	}
 
-	// Decode RS232 frame
-	frame, _, err := codec.DecodeRS232Frame(rawData)
-	if err != nil {
-		h.Log.Debug("failed to decode RS232 frame", "error", err)
-		return
-	}
-
-	// Parse MeshCore packet
+	// Parse MeshCore packet directly from decoded bytes
 	var mcPacket codec.Packet
-	if err := mcPacket.ReadFrom(frame.Payload); err != nil {
+	if err := mcPacket.ReadFrom(rawData); err != nil {
 		h.Log.Debug("failed to parse MeshCore packet", "error", err)
 		return
 	}
@@ -615,21 +606,12 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 	copy(payload[1:], encrypted)
 	mcPacket.Payload = payload
 
-	// Encode packet
+	// Encode packet and base64 encode (raw packet, no RS232 framing)
 	packetBytes := mcPacket.WriteTo()
+	b64Payload := base64.StdEncoding.EncodeToString(packetBytes)
 
-	// Encode RS232 frame
-	frameBytes, err := codec.EncodeRS232Frame(packetBytes)
-	if err != nil {
-		h.Log.Error("failed to encode RS232 frame", "error", err)
-		return
-	}
-
-	// Base64 encode
-	b64Payload := base64.StdEncoding.EncodeToString(frameBytes)
-
-	// Publish to MeshCore tx topic
-	topic := "meshcore/" + idx.mapping.MeshCoreMeshID + "/tx"
+	// Publish to MeshCore topic
+	topic := "meshcore/" + idx.mapping.MeshCoreMeshID
 
 	go func(t string, payload string) {
 		err := h.config.Server.Publish(t, []byte(payload), false, 0)

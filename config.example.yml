@@ -85,6 +85,15 @@ meshCore:
 bridge:
   enabled: false
 
+  # This bridge's mesh ID, used as the topic suffix for outbound messages.
+  # Multiple bridge devices can coexist — each has its own mesh ID.
+  # Inbound messages from any mesh ID are accepted.
+  meshID: my-bridge
+
+  # MQTT topic prefix for MeshCore packets (default: "meshcore")
+  # Must match the root_topic configured on your bridge devices.
+  # topicPrefix: meshcore
+
   # Prefix prepended to messages bridged TO MeshCore (so MeshCore users
   # can see the message originated from Meshtastic)
   meshtasticPrefix: "[MT] "
@@ -98,11 +107,11 @@ bridge:
   parseSenderName: true
 
   # Channel mappings define which Meshtastic channels are bridged to which
-  # MeshCore mesh IDs. Each mapping can optionally specify a direction.
+  # MeshCore encryption channels. Messages from any bridge device on a
+  # matching channel are bridged.
   channelMappings:
     - meshtasticChannel: LongFast           # Meshtastic channel name
       meshtasticTopicRoot: msh/US           # MQTT topic root for this channel
-      meshCoreMeshID: my-bridge             # MeshCore mesh ID
       meshCoreChannelKey: "base64-key=="    # Shared encryption key (base64)
       direction: both                       # "both", "mt_to_mc", or "mc_to_mt"
 

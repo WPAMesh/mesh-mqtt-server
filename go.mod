@@ -6,7 +6,7 @@ require (
 	github.com/a-h/templ v0.3.977
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-viper/mapstructure/v2 v2.2.1
-	github.com/kabili207/meshtastic-go/core v0.0.0-20260206204842-a0aa3d159020
+	github.com/kabili207/meshtastic-go/core v0.0.0-20260215001351-6354c11f9af3
 	google.golang.org/protobuf v1.36.7
 )
 

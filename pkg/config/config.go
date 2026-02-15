@@ -85,6 +85,10 @@ type ForwardingTarget struct {
 type BridgeSettings struct {
 	// Enabled controls whether bridging is active
 	Enabled bool
+	// MeshID is this bridge's mesh ID used for outbound messages (e.g., "wpamesh-mqtt")
+	MeshID string
+	// TopicPrefix is the MQTT topic prefix for MeshCore packets (default: "meshcore")
+	TopicPrefix string
 	// ChannelMappings defines which Meshtastic channels map to which MeshCore channels
 	ChannelMappings []ChannelMapping
 	// MeshtasticPrefix is prepended to messages bridged TO MeshCore (e.g., "[MT] ")
@@ -101,8 +105,6 @@ type ChannelMapping struct {
 	MeshtasticChannel string
 	// MeshtasticTopicRoot is the MQTT topic root (e.g., "msh/US")
 	MeshtasticTopicRoot string
-	// MeshCoreMeshID is the mesh ID for the MeshCore bridge (e.g., "bridge01")
-	MeshCoreMeshID string
 	// MeshCoreChannelKey is the base64-encoded shared key for MeshCore encryption/decryption
 	MeshCoreChannelKey string
 	// Direction controls which way messages are bridged: "both", "mt_to_mc", "mc_to_mt"

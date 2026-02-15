@@ -18,6 +18,10 @@ const (
 )
 
 var (
+	// DefaultChannelKey is the default PSK for MeshCore's built-in "Public" group channel.
+	// Base64: izOH6cXN6mrJ5e26oRXNcg==
+	DefaultChannelKey = []byte{0x8b, 0x33, 0x87, 0xe9, 0xc5, 0xcd, 0xea, 0x6a, 0xc9, 0xe5, 0xed, 0xba, 0xa1, 0x15, 0xcd, 0x72}
+
 	ErrInvalidKeySize    = errors.New("invalid key size: must be 16 or 32 bytes")
 	ErrInvalidMACSize    = errors.New("ciphertext too short for MAC")
 	ErrMACMismatch       = errors.New("MAC verification failed")

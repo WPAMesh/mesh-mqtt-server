@@ -34,8 +34,6 @@ const (
 var (
 	// Regex to match Meshtastic channel topics: msh/{root}/2/e/{channel}/{gateway}
 	meshtasticTopicRegex = regexp.MustCompile(`^(msh(?:/[^/]+)*)/2/e/([^/]+)/(![a-f0-9]{8})$`)
-	// Regex to match MeshCore topics: meshcore/{mesh_id}
-	meshCoreTopicRegex = regexp.MustCompile(`^meshcore/([^/]+)$`)
 )
 
 // BridgeHookOptions contains configuration for the bridge hook.
@@ -59,6 +57,10 @@ type channelMappingIndex struct {
 type BridgeHook struct {
 	mqtt.HookBase
 	config *BridgeHookOptions
+
+	// MeshCore topic matching (built from config prefix)
+	mcTopicRegex  *regexp.Regexp
+	mcTopicPrefix string // e.g. "meshcore"
 
 	// Indexed mappings for fast lookup
 	mtMappings map[string]*channelMappingIndex // by "root/channel" key
@@ -114,6 +116,13 @@ func (h *BridgeHook) Init(config any) error {
 		return nil
 	}
 
+	// Set up MeshCore topic prefix and regex
+	h.mcTopicPrefix = h.config.Bridge.TopicPrefix
+	if h.mcTopicPrefix == "" {
+		h.mcTopicPrefix = "meshcore"
+	}
+	h.mcTopicRegex = regexp.MustCompile(`^` + regexp.QuoteMeta(h.mcTopicPrefix) + `/([^/]+)$`)
+
 	// Parse and index channel mappings
 	for i := range h.config.Bridge.ChannelMappings {
 		mapping := &h.config.Bridge.ChannelMappings[i]
@@ -154,7 +163,6 @@ func (h *BridgeHook) Init(config any) error {
 		h.Log.Info("bridge mapping configured",
 			"meshtastic_channel", mapping.MeshtasticChannel,
 			"meshtastic_root", mapping.MeshtasticTopicRoot,
-			"meshcore_mesh_id", mapping.MeshCoreMeshID,
 			"meshcore_hash", idx.meshCoreHash,
 			"direction", mapping.Direction)
 	}
@@ -167,6 +175,8 @@ func (h *BridgeHook) Init(config any) error {
 
 	h.Log.Info("bridge enabled",
 		"mappings", len(h.config.Bridge.ChannelMappings),
+		"mesh_id", h.config.Bridge.MeshID,
+		"topic_prefix", h.mcTopicPrefix,
 		"meshtastic_prefix", h.config.Bridge.MeshtasticPrefix,
 		"meshcore_prefix", h.config.Bridge.MeshCorePrefix)
 
@@ -346,7 +356,7 @@ func (h *BridgeHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 	}
 
 	// Try MeshCore topic
-	if matches := meshCoreTopicRegex.FindStringSubmatch(pk.TopicName); len(matches) > 0 {
+	if matches := h.mcTopicRegex.FindStringSubmatch(pk.TopicName); len(matches) > 0 {
 		h.handleMeshCoreMessage(pk, matches[1])
 		return pk, nil
 	}
@@ -480,11 +490,6 @@ func (h *BridgeHook) handleMeshCoreMessage(pk packets.Packet, meshID string) {
 
 	// Try each mapping with matching hash (handle collisions)
 	for _, idx := range mappings {
-		// Check mesh ID matches
-		if idx.mapping.MeshCoreMeshID != meshID {
-			continue
-		}
-
 		// Check direction
 		if idx.mapping.Direction != "both" && idx.mapping.Direction != "mc_to_mt" {
 			continue
@@ -610,8 +615,8 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 	packetBytes := mcPacket.WriteTo()
 	b64Payload := base64.StdEncoding.EncodeToString(packetBytes)
 
-	// Publish to MeshCore topic
-	topic := "meshcore/" + idx.mapping.MeshCoreMeshID
+	// Publish to MeshCore topic using this bridge's mesh ID
+	topic := h.mcTopicPrefix + "/" + h.config.Bridge.MeshID
 
 	go func(t string, payload string) {
 		err := h.config.Server.Publish(t, []byte(payload), false, 0)

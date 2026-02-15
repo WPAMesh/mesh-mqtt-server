@@ -3,6 +3,7 @@ module github.com/kabili207/mesh-mqtt-server
 go 1.24.3
 
 require (
+	filippo.io/edwards25519 v1.1.0
 	github.com/a-h/templ v0.3.977
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-viper/mapstructure/v2 v2.2.1

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"filippo.io/edwards25519"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 	"google.golang.org/protobuf/proto"
@@ -422,6 +423,11 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 
 // handleMeshtasticTextMessage bridges a text message from Meshtastic to MeshCore.
 func (h *BridgeHook) handleMeshtasticTextMessage(idx *channelMappingIndex, packet *pb.MeshPacket, data *pb.Data, channel string) {
+	// Only bridge broadcast messages — DMs can't be represented in MeshCore group chat
+	if packet.To != 0xFFFFFFFF {
+		return
+	}
+
 	// Check direction — only bridge if mt_to_mc is allowed
 	if idx.mapping.Direction != "both" && idx.mapping.Direction != "mt_to_mc" {
 		return
@@ -806,6 +812,57 @@ func MCPubKeyToNodeID(pubkey []byte) uint32 {
 	return crc32.ChecksumIEEE(pubkey)
 }
 
+// mcNodeTypeToRole maps a MeshCore node type to the appropriate Meshtastic device role.
+func mcNodeTypeToRole(nodeType int16) pb.Config_DeviceConfig_Role {
+	switch uint8(nodeType) {
+	case codec.NodeTypeChat:
+		return pb.Config_DeviceConfig_CLIENT_MUTE
+	case codec.NodeTypeRepeater:
+		return pb.Config_DeviceConfig_CLIENT_BASE
+	case codec.NodeTypeRoom:
+		return pb.Config_DeviceConfig_CLIENT_MUTE
+	case codec.NodeTypeSensor:
+		return pb.Config_DeviceConfig_SENSOR
+	default:
+		return pb.Config_DeviceConfig_CLIENT
+	}
+}
+
+// lookupVirtualNodeMCInfo retrieves the MeshCore node info for a virtual node by
+// decoding its ExternalID (hex pubkey) and looking up the MeshCore node record.
+func (h *BridgeHook) lookupVirtualNodeMCInfo(virtualNodeID uint32) *models.MeshCoreNodeInfo {
+	if h.config.Storage == nil {
+		return nil
+	}
+
+	virtualNode, err := h.config.Storage.VirtualNodes.GetByNodeID(virtualNodeID)
+	if err != nil || virtualNode == nil {
+		return nil
+	}
+
+	pubKey, err := hex.DecodeString(virtualNode.ExternalID)
+	if err != nil || len(pubKey) < 32 {
+		return nil
+	}
+
+	mcNode, err := h.config.Storage.MeshCoreNodes.GetNode(pubKey)
+	if err != nil || mcNode == nil {
+		return nil
+	}
+
+	return mcNode
+}
+
+// ed25519PubKeyToX25519 converts an Ed25519 public key to an X25519 public key
+// by converting from Edwards to Montgomery form.
+func ed25519PubKeyToX25519(edPubKey []byte) ([]byte, error) {
+	point, err := new(edwards25519.Point).SetBytes(edPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Ed25519 public key: %w", err)
+	}
+	return point.BytesMontgomery(), nil
+}
+
 // broadcastVirtualNodeInfo broadcasts NODEINFO for a virtual node so Meshtastic clients
 // can learn about it. This is called when a virtual node first sends a message.
 func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualNodeID uint32, displayName string) {
@@ -821,13 +878,27 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 		longName = longName[:39]
 	}
 
+	// Look up MeshCore node info for role and public key
+	var nodeType int16
+	var x25519Key []byte
+	if mcNode := h.lookupVirtualNodeMCInfo(virtualNodeID); mcNode != nil {
+		nodeType = mcNode.NodeType
+		if k, err := ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
+			x25519Key = k
+		}
+	}
+	role := mcNodeTypeToRole(nodeType)
+	unmessagable := true
+
 	// Build User (NODEINFO) payload
 	user := &pb.User{
-		Id:        fmt.Sprintf("!%08x", virtualNodeID),
-		LongName:  longName,
-		ShortName: shortName,
-		HwModel:   pb.HardwareModel_PRIVATE_HW, // Signals this is a bridged/virtual node
-		Role:      pb.Config_DeviceConfig_CLIENT,
+		Id:              fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:        longName,
+		ShortName:       shortName,
+		HwModel:         pb.HardwareModel_PRIVATE_HW, // Signals this is a bridged/virtual node
+		Role:            role,
+		IsUnmessagable:  &unmessagable,
+		PublicKey:        x25519Key,
 	}
 
 	rawUser, err := proto.Marshal(user)
@@ -922,13 +993,27 @@ func (h *BridgeHook) respondToNodeInfoRequest(idx *channelMappingIndex, requestP
 		longName = longName[:39]
 	}
 
+	// Look up MeshCore node info for role and public key
+	var nodeType int16
+	var x25519Key []byte
+	if mcNode := h.lookupVirtualNodeMCInfo(virtualNodeID); mcNode != nil {
+		nodeType = mcNode.NodeType
+		if k, err := ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
+			x25519Key = k
+		}
+	}
+	role := mcNodeTypeToRole(nodeType)
+	unmessagable := true
+
 	// Build User (NODEINFO) payload
 	user := &pb.User{
-		Id:        fmt.Sprintf("!%08x", virtualNodeID),
-		LongName:  longName,
-		ShortName: shortName,
-		HwModel:   pb.HardwareModel_PRIVATE_HW,
-		Role:      pb.Config_DeviceConfig_CLIENT,
+		Id:              fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:        longName,
+		ShortName:       shortName,
+		HwModel:         pb.HardwareModel_PRIVATE_HW,
+		Role:            role,
+		IsUnmessagable:  &unmessagable,
+		PublicKey:        x25519Key,
 	}
 
 	rawUser, err := proto.Marshal(user)

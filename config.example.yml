@@ -94,6 +94,11 @@ bridge:
   # Must match the root_topic configured on your bridge devices.
   # topicPrefix: meshcore
 
+  # Maximum hop count for messages bridged to Meshtastic (default: 3, max: 7).
+  # The bridge itself consumes one hop, so a value of 3 sends packets with
+  # HopStart=3, HopLimit=2 (allowing 2 more RF rebroadcasts).
+  # hopLimit: 3
+
   # Prefix prepended to messages bridged TO MeshCore (so MeshCore users
   # can see the message originated from Meshtastic)
   meshtasticPrefix: "[MT] "

@@ -89,6 +89,9 @@ type BridgeSettings struct {
 	MeshID string
 	// TopicPrefix is the MQTT topic prefix for MeshCore packets (default: "meshcore")
 	TopicPrefix string
+	// HopLimit is the max hops for packets bridged to Meshtastic (default: 3, max: 7).
+	// The bridge consumes one hop, so packets are sent with HopStart=HopLimit, HopLimit=HopLimit-1.
+	HopLimit int
 	// ChannelMappings defines which Meshtastic channels map to which MeshCore channels
 	ChannelMappings []ChannelMapping
 	// MeshtasticPrefix is prepended to messages bridged TO MeshCore (e.g., "[MT] ")

@@ -364,18 +364,14 @@ func (h *BridgeHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 	return pk, nil
 }
 
-// handleMeshtasticMessage processes a Meshtastic message and bridges to MeshCore.
+// handleMeshtasticMessage processes a Meshtastic message — bridges text to MeshCore
+// and responds to NODEINFO requests targeting virtual nodes.
 func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, channel, gateway string) {
 	// Look up mapping
 	mappingKey := topicRoot + "/" + channel
 	idx, ok := h.mtMappings[mappingKey]
 	if !ok {
 		return // No mapping for this channel
-	}
-
-	// Check direction
-	if idx.mapping.Direction != "both" && idx.mapping.Direction != "mt_to_mc" {
-		return
 	}
 
 	// Skip if from bridge's own gateway (loop prevention)
@@ -415,8 +411,19 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 		return
 	}
 
-	// Only bridge text messages
-	if data.Portnum != pb.PortNum_TEXT_MESSAGE_APP {
+	switch data.Portnum {
+	case pb.PortNum_TEXT_MESSAGE_APP:
+		h.handleMeshtasticTextMessage(idx, packet, data, channel)
+
+	case pb.PortNum_NODEINFO_APP:
+		h.handleMeshtasticNodeInfoRequest(idx, packet, data)
+	}
+}
+
+// handleMeshtasticTextMessage bridges a text message from Meshtastic to MeshCore.
+func (h *BridgeHook) handleMeshtasticTextMessage(idx *channelMappingIndex, packet *pb.MeshPacket, data *pb.Data, channel string) {
+	// Check direction — only bridge if mt_to_mc is allowed
+	if idx.mapping.Direction != "both" && idx.mapping.Direction != "mt_to_mc" {
 		return
 	}
 
@@ -452,6 +459,40 @@ func (h *BridgeHook) handleMeshtasticMessage(pk packets.Packet, topicRoot, chann
 
 	// Build and send MeshCore packet
 	h.sendToMeshCore(idx, formattedMsg, channel)
+}
+
+// handleMeshtasticNodeInfoRequest responds to NODEINFO requests targeting virtual nodes.
+func (h *BridgeHook) handleMeshtasticNodeInfoRequest(idx *channelMappingIndex, packet *pb.MeshPacket, data *pb.Data) {
+	// Only respond to explicit requests (WantResponse set)
+	if !data.WantResponse {
+		return
+	}
+
+	// Only respond if the target is a virtual node
+	if h.config.Storage == nil {
+		return
+	}
+
+	virtualNode, err := h.config.Storage.VirtualNodes.GetByNodeID(packet.To)
+	if err != nil {
+		h.Log.Warn("failed to look up virtual node for NODEINFO request", "error", err)
+		return
+	}
+	if virtualNode == nil {
+		return // Not our virtual node
+	}
+
+	displayName := virtualNode.DisplayName
+	if displayName == "" {
+		displayName = fmt.Sprintf("!%08x", packet.To)
+	}
+
+	h.Log.Debug("responding to NODEINFO request for virtual node",
+		"virtual_node", fmt.Sprintf("!%08x", packet.To),
+		"requester", fmt.Sprintf("!%08x", packet.From),
+		"name", displayName)
+
+	h.respondToNodeInfoRequest(idx, packet.Id, packet.From, packet.To, displayName)
 }
 
 // handleMeshCoreMessage processes a MeshCore message and bridges to Meshtastic.
@@ -667,13 +708,14 @@ func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string, 
 	}
 
 	// Build MeshPacket
+	hopStart, hopLimit := h.getHopValues()
 	msgTime := uint32(time.Now().Unix())
 	pkt := pb.MeshPacket{
 		Id:       packetID,
 		To:       uint32(0xFFFFFFFF), // Broadcast
 		From:     fromNode,
-		HopLimit: 0,
-		HopStart: 0,
+		HopLimit: hopLimit,
+		HopStart: hopStart,
 		ViaMqtt:  true,
 		RxTime:   msgTime,
 		Channel:  idx.meshtasticHash,
@@ -718,6 +760,21 @@ func (h *BridgeHook) sendToMeshtastic(idx *channelMappingIndex, message string, 
 	// Also add fingerprint for the sent message to prevent loop on echo
 	fp := computeFingerprint(message, idx.mapping.MeshtasticChannel, "meshtastic")
 	h.checkAndAddFingerprint(fp)
+}
+
+// getHopValues returns the HopStart and HopLimit for bridged packets.
+// The bridge consumes one hop, so HopLimit = configured - 1.
+func (h *BridgeHook) getHopValues() (hopStart, hopLimit uint32) {
+	configured := h.config.Bridge.HopLimit
+	if configured <= 0 {
+		configured = 3
+	}
+	if configured > 7 {
+		configured = 7
+	}
+	hopStart = uint32(configured)
+	hopLimit = hopStart - 1
+	return
 }
 
 // generatePacketID generates a unique packet ID.
@@ -802,13 +859,14 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 	}
 
 	// Build MeshPacket - broadcast to all
+	hopStart, hopLimit := h.getHopValues()
 	msgTime := uint32(time.Now().Unix())
 	pkt := pb.MeshPacket{
 		Id:       packetID,
 		To:       uint32(0xFFFFFFFF), // Broadcast
 		From:     virtualNodeID,
-		HopLimit: 0,
-		HopStart: 0,
+		HopLimit: hopLimit,
+		HopStart: hopStart,
 		ViaMqtt:  true,
 		RxTime:   msgTime,
 		Channel:  idx.meshtasticHash,
@@ -822,7 +880,7 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 	// Build ServiceEnvelope
 	env := pb.ServiceEnvelope{
 		ChannelId: idx.mapping.MeshtasticChannel,
-		GatewayId: fmt.Sprintf("!%08x", virtualNodeID), // Virtual node as gateway
+		GatewayId: h.config.MeshSettings.SelfNode.NodeID.String(),
 		Packet:    &pkt,
 	}
 
@@ -832,8 +890,8 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 		return
 	}
 
-	// Publish to Meshtastic topic
-	topic := idx.mapping.MeshtasticTopicRoot + "/2/e/" + idx.mapping.MeshtasticChannel + "/" + fmt.Sprintf("!%08x", virtualNodeID)
+	// Publish to Meshtastic topic using the server's gateway ID (for ACL)
+	topic := idx.mapping.MeshtasticTopicRoot + "/2/e/" + idx.mapping.MeshtasticChannel + "/" + h.config.MeshSettings.SelfNode.NodeID.String()
 
 	go func(t string, payload []byte) {
 		// Small delay before NODEINFO to allow text message to be processed first
@@ -845,6 +903,107 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 		} else {
 			h.Log.Debug("broadcast NODEINFO for virtual node",
 				"node_id", fmt.Sprintf("!%08x", virtualNodeID),
+				"name", displayName)
+		}
+	}(topic, rawEnv)
+}
+
+// respondToNodeInfoRequest sends a unicast NODEINFO response for a virtual node.
+func (h *BridgeHook) respondToNodeInfoRequest(idx *channelMappingIndex, requestPacketID uint32, requesterNodeID uint32, virtualNodeID uint32, displayName string) {
+	// Build short name (up to 4 chars)
+	shortName := displayName
+	if len(shortName) > 4 {
+		shortName = shortName[:4]
+	}
+
+	// Build long name with source prefix
+	longName := "MC:" + displayName
+	if len(longName) > 39 { // Meshtastic limit
+		longName = longName[:39]
+	}
+
+	// Build User (NODEINFO) payload
+	user := &pb.User{
+		Id:        fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:  longName,
+		ShortName: shortName,
+		HwModel:   pb.HardwareModel_PRIVATE_HW,
+		Role:      pb.Config_DeviceConfig_CLIENT,
+	}
+
+	rawUser, err := proto.Marshal(user)
+	if err != nil {
+		h.Log.Error("failed to marshal NODEINFO response", "error", err)
+		return
+	}
+
+	// Build Data with RequestId to mark this as a response
+	bitfield := uint32(BITFIELD_OkToMQTT)
+	data := pb.Data{
+		Portnum:   pb.PortNum_NODEINFO_APP,
+		Payload:   rawUser,
+		Bitfield:  &bitfield,
+		RequestId: requestPacketID,
+	}
+
+	rawData, err := proto.Marshal(&data)
+	if err != nil {
+		h.Log.Error("failed to marshal Data for NODEINFO response", "error", err)
+		return
+	}
+
+	// Encrypt
+	packetID := h.generatePacketID()
+	encrypted, err := crypto.XOR(rawData, idx.meshtasticKey, packetID, virtualNodeID)
+	if err != nil {
+		h.Log.Error("failed to encrypt NODEINFO response", "error", err)
+		return
+	}
+
+	// Build MeshPacket - unicast to requester
+	hopStart, hopLimit := h.getHopValues()
+	msgTime := uint32(time.Now().Unix())
+	pkt := pb.MeshPacket{
+		Id:       packetID,
+		To:       requesterNodeID,
+		From:     virtualNodeID,
+		HopLimit: hopLimit,
+		HopStart: hopStart,
+		ViaMqtt:  true,
+		RxTime:   msgTime,
+		Channel:  idx.meshtasticHash,
+		Priority: pb.MeshPacket_DEFAULT,
+		Delayed:  pb.MeshPacket_NO_DELAY,
+		PayloadVariant: &pb.MeshPacket_Encrypted{
+			Encrypted: encrypted,
+		},
+	}
+
+	// Build ServiceEnvelope — use the server's gateway ID so ACL allows delivery
+	env := pb.ServiceEnvelope{
+		ChannelId: idx.mapping.MeshtasticChannel,
+		GatewayId: h.config.MeshSettings.SelfNode.NodeID.String(),
+		Packet:    &pkt,
+	}
+
+	rawEnv, err := proto.Marshal(&env)
+	if err != nil {
+		h.Log.Error("failed to marshal ServiceEnvelope for NODEINFO response", "error", err)
+		return
+	}
+
+	topic := idx.mapping.MeshtasticTopicRoot + "/2/e/" + idx.mapping.MeshtasticChannel + "/" + h.config.MeshSettings.SelfNode.NodeID.String()
+
+	go func(t string, payload []byte) {
+		time.Sleep(200 * time.Millisecond)
+
+		err := h.config.Server.Publish(t, payload, false, 0)
+		if err != nil {
+			h.Log.Error("failed to publish NODEINFO response", "error", err, "topic", t)
+		} else {
+			h.Log.Debug("sent NODEINFO response for virtual node",
+				"node_id", fmt.Sprintf("!%08x", virtualNodeID),
+				"requester", fmt.Sprintf("!%08x", requesterNodeID),
 				"name", displayName)
 		}
 	}(topic, rawEnv)

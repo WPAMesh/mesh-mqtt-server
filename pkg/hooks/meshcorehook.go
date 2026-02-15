@@ -169,7 +169,48 @@ func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string) {
 		h.Log.Error("failed to save MeshCore node",
 			"pub_key", advert.PubKey[:8],
 			"error", err)
+		return
 	}
+
+	// Update virtual node display name if one exists for this pubkey
+	h.syncVirtualNode(nodeInfo)
+}
+
+// syncVirtualNode updates the display name of a virtual node if one exists for this
+// MeshCore pubkey and the name has changed.
+func (h *MeshCoreHook) syncVirtualNode(nodeInfo *models.MeshCoreNodeInfo) {
+	if h.config.Storage == nil || nodeInfo.Name == "" {
+		return
+	}
+
+	virtualNodeID := MCPubKeyToNodeID(nodeInfo.PubKey)
+	existingNode, err := h.config.Storage.VirtualNodes.GetByNodeID(virtualNodeID)
+	if err != nil {
+		h.Log.Warn("failed to look up virtual node for advert sync", "error", err)
+		return
+	}
+	if existingNode == nil {
+		return // No virtual node yet — will be created when they send a message
+	}
+
+	if existingNode.DisplayName == nodeInfo.Name {
+		return // Already up to date
+	}
+
+	oldName := existingNode.DisplayName
+	existingNode.DisplayName = nodeInfo.Name
+	existingNode.LastSeen = time.Now()
+	if err := h.config.Storage.VirtualNodes.Save(existingNode); err != nil {
+		h.Log.Warn("failed to update virtual node from advert",
+			"node_id", virtualNodeID,
+			"error", err)
+		return
+	}
+
+	h.Log.Info("updated virtual node display name from advert",
+		"node_id", virtualNodeID,
+		"old_name", oldName,
+		"new_name", nodeInfo.Name)
 }
 
 // Stop gracefully stops the MeshCore hook.

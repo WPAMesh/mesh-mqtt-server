@@ -1134,15 +1134,28 @@ func (h *BridgeHook) getOrCreateVirtualNode(senderName string) (uint32, string, 
 
 	now := time.Now()
 	if existingNode != nil {
-		// Update last seen
-		if err := h.config.Storage.VirtualNodes.UpdateLastSeen(virtualNodeID); err != nil {
-			h.Log.Warn("failed to update virtual node last seen", "error", err)
+		// Update display name if sender name has changed
+		if senderName != "" && existingNode.DisplayName != senderName {
+			existingNode.DisplayName = senderName
+			existingNode.LastSeen = now
+			if err := h.config.Storage.VirtualNodes.Save(existingNode); err != nil {
+				h.Log.Warn("failed to update virtual node display name", "error", err)
+			} else {
+				h.Log.Info("updated virtual node display name from message",
+					"node_id", fmt.Sprintf("!%08x", virtualNodeID),
+					"new_name", senderName)
+			}
+		} else {
+			// Just update last seen
+			if err := h.config.Storage.VirtualNodes.UpdateLastSeen(virtualNodeID); err != nil {
+				h.Log.Warn("failed to update virtual node last seen", "error", err)
+			}
 		}
-		// Use existing display name if set, otherwise use sender name
-		if existingNode.DisplayName != "" {
-			return virtualNodeID, existingNode.DisplayName, false
+		displayName := existingNode.DisplayName
+		if displayName == "" {
+			displayName = senderName
 		}
-		return virtualNodeID, senderName, false
+		return virtualNodeID, displayName, false
 	}
 
 	// Create new virtual node

@@ -183,6 +183,11 @@ func main() {
 		}
 	}
 
+	// Wire up cross-hook references after both hooks are initialized
+	if meshCoreHook != nil && bridgeHook != nil {
+		meshCoreHook.SetBridgeHook(bridgeHook)
+	}
+
 	// Start the server
 	go func() {
 		err := server.Serve()

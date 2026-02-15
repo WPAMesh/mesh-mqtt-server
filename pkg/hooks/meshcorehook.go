@@ -25,7 +25,13 @@ type MeshCoreHookOptions struct {
 // MeshCoreHook handles MeshCore protocol packets received via MQTT.
 type MeshCoreHook struct {
 	mqtt.HookBase
-	config *MeshCoreHookOptions
+	config     *MeshCoreHookOptions
+	bridgeHook *BridgeHook
+}
+
+// SetBridgeHook sets the bridge hook reference for broadcasting virtual node updates.
+func (h *MeshCoreHook) SetBridgeHook(bh *BridgeHook) {
+	h.bridgeHook = bh
 }
 
 // ID returns the unique identifier for this hook.
@@ -211,6 +217,11 @@ func (h *MeshCoreHook) syncVirtualNode(nodeInfo *models.MeshCoreNodeInfo) {
 		"node_id", virtualNodeID,
 		"old_name", oldName,
 		"new_name", nodeInfo.Name)
+
+	// Broadcast updated NODEINFO to Meshtastic so clients learn the new name
+	if h.bridgeHook != nil && h.bridgeHook.IsEnabled() {
+		h.bridgeHook.BroadcastVirtualNodeUpdate(virtualNodeID, nodeInfo.Name)
+	}
 }
 
 // Stop gracefully stops the MeshCore hook.

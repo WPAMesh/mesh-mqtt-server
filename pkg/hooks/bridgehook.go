@@ -806,6 +806,17 @@ func (h *BridgeHook) IsEnabled() bool {
 	return h.config != nil && h.config.Bridge.Enabled
 }
 
+// BroadcastVirtualNodeUpdate sends a NODEINFO broadcast for an existing virtual node
+// on the first available Meshtastic channel mapping. This is used when advert data
+// changes (e.g. name update) so Meshtastic clients learn about the change.
+func (h *BridgeHook) BroadcastVirtualNodeUpdate(virtualNodeID uint32, displayName string) {
+	// Pick the first available channel mapping
+	for _, idx := range h.mtMappings {
+		h.broadcastVirtualNodeInfo(idx, virtualNodeID, displayName)
+		return
+	}
+}
+
 // MCPubKeyToNodeID converts a MeshCore ed25519 public key to a Meshtastic-style NodeID
 // using CRC32 for a deterministic 32-bit mapping.
 func MCPubKeyToNodeID(pubkey []byte) uint32 {

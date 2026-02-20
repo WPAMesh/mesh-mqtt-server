@@ -3,6 +3,8 @@ package hooks
 import (
 	"encoding/base64"
 	"testing"
+
+	mccrypto "github.com/kabili207/meshcore-go/core/crypto"
 )
 
 func TestComputeChannelHash(t *testing.T) {
@@ -12,10 +14,10 @@ func TestComputeChannelHash(t *testing.T) {
 		key[i] = byte(i)
 	}
 
-	hash := ComputeChannelHash(key)
+	hash := mccrypto.ComputeChannelHash(key)
 
 	// The hash should be consistent
-	hash2 := ComputeChannelHash(key)
+	hash2 := mccrypto.ComputeChannelHash(key)
 	if hash != hash2 {
 		t.Errorf("ComputeChannelHash not deterministic: got %d then %d", hash, hash2)
 	}
@@ -25,7 +27,7 @@ func TestComputeChannelHash(t *testing.T) {
 	for i := range key2 {
 		key2[i] = byte(i + 1)
 	}
-	hash3 := ComputeChannelHash(key2)
+	hash3 := mccrypto.ComputeChannelHash(key2)
 	if hash == hash3 {
 		t.Log("Warning: Different keys produced same hash (collision)")
 	}
@@ -50,12 +52,12 @@ func TestEncryptDecryptGroupMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encrypted, err := EncryptGroupMessage([]byte(tt.plaintext), key)
+			encrypted, err := mccrypto.EncryptGroupMessage([]byte(tt.plaintext), key)
 			if err != nil {
 				t.Fatalf("EncryptGroupMessage failed: %v", err)
 			}
 
-			decrypted, err := DecryptGroupMessage(encrypted, key)
+			decrypted, err := mccrypto.DecryptGroupMessage(encrypted, key)
 			if err != nil {
 				t.Fatalf("DecryptGroupMessage failed: %v", err)
 			}
@@ -85,7 +87,7 @@ func TestEncryptGroupMessageInvalidKey(t *testing.T) {
 	}
 
 	for _, key := range invalidKeys {
-		_, err := EncryptGroupMessage(plaintext, key)
+		_, err := mccrypto.EncryptGroupMessage(plaintext, key)
 		if err == nil {
 			t.Errorf("EncryptGroupMessage should fail for key size %d", len(key))
 		}
@@ -98,7 +100,7 @@ func TestEncryptGroupMessageInvalidKey(t *testing.T) {
 	}
 
 	for _, key := range validKeys {
-		_, err := EncryptGroupMessage(plaintext, key)
+		_, err := mccrypto.EncryptGroupMessage(plaintext, key)
 		if err != nil {
 			t.Errorf("EncryptGroupMessage should succeed for key size %d: %v", len(key), err)
 		}
@@ -112,7 +114,7 @@ func TestDecryptGroupMessageMACMismatch(t *testing.T) {
 	}
 
 	// Create valid encrypted message
-	encrypted, err := EncryptGroupMessage([]byte("test"), key)
+	encrypted, err := mccrypto.EncryptGroupMessage([]byte("test"), key)
 	if err != nil {
 		t.Fatalf("EncryptGroupMessage failed: %v", err)
 	}
@@ -121,8 +123,8 @@ func TestDecryptGroupMessageMACMismatch(t *testing.T) {
 	encrypted[0] ^= 0xFF
 	encrypted[1] ^= 0xFF
 
-	_, err = DecryptGroupMessage(encrypted, key)
-	if err != ErrMACMismatch {
+	_, err = mccrypto.DecryptGroupMessage(encrypted, key)
+	if err != mccrypto.ErrMACMismatch {
 		t.Errorf("Expected ErrMACMismatch, got: %v", err)
 	}
 }
@@ -131,7 +133,7 @@ func TestBuildGrpTxtPlaintext(t *testing.T) {
 	timestamp := uint32(1704067200) // 2024-01-01 00:00:00 UTC
 	message := "Hello, World!"
 
-	plaintext := BuildGrpTxtPlaintext(timestamp, message)
+	plaintext := mccrypto.BuildGrpTxtPlaintext(timestamp, message)
 
 	// Check length: 4 (timestamp) + 1 (type) + len(message)
 	expectedLen := 5 + len(message)
@@ -140,7 +142,7 @@ func TestBuildGrpTxtPlaintext(t *testing.T) {
 	}
 
 	// Parse it back
-	ts, txtType, msg, err := ParseGrpTxtPlaintext(plaintext)
+	ts, txtType, msg, err := mccrypto.ParseGrpTxtPlaintext(plaintext)
 	if err != nil {
 		t.Fatalf("ParseGrpTxtPlaintext failed: %v", err)
 	}
@@ -159,7 +161,7 @@ func TestBuildGrpTxtPlaintext(t *testing.T) {
 }
 
 func TestParseGrpTxtPlaintextTooShort(t *testing.T) {
-	_, _, _, err := ParseGrpTxtPlaintext([]byte{1, 2, 3, 4}) // Only 4 bytes
+	_, _, _, err := mccrypto.ParseGrpTxtPlaintext([]byte{1, 2, 3, 4}) // Only 4 bytes
 	if err == nil {
 		t.Error("Expected error for too-short plaintext")
 	}
@@ -403,20 +405,20 @@ func TestEncryptDecryptWithBase64Key(t *testing.T) {
 	}
 
 	message := "Test message for encryption"
-	plaintext := BuildGrpTxtPlaintext(1234567890, message)
+	plaintext := mccrypto.BuildGrpTxtPlaintext(1234567890, message)
 
-	encrypted, err := EncryptGroupMessage(plaintext, key)
+	encrypted, err := mccrypto.EncryptGroupMessage(plaintext, key)
 	if err != nil {
 		t.Fatalf("EncryptGroupMessage failed: %v", err)
 	}
 
-	decrypted, err := DecryptGroupMessage(encrypted, key)
+	decrypted, err := mccrypto.DecryptGroupMessage(encrypted, key)
 	if err != nil {
 		t.Fatalf("DecryptGroupMessage failed: %v", err)
 	}
 
 	// Parse decrypted content
-	_, _, decMsg, err := ParseGrpTxtPlaintext(decrypted)
+	_, _, decMsg, err := mccrypto.ParseGrpTxtPlaintext(decrypted)
 	if err != nil {
 		t.Fatalf("ParseGrpTxtPlaintext failed: %v", err)
 	}

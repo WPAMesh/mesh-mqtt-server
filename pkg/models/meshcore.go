@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshcore"
+	"github.com/kabili207/meshcore-go/core"
 )
 
 // MeshCoreNodeInfo represents a MeshCore node stored in the database.
@@ -17,8 +17,8 @@ type MeshCoreNodeInfo struct {
 }
 
 // GetMeshCoreID returns the node's public key as a MeshCoreID.
-func (n *MeshCoreNodeInfo) GetMeshCoreID() meshcore.MeshCoreID {
-	var id meshcore.MeshCoreID
+func (n *MeshCoreNodeInfo) GetMeshCoreID() core.MeshCoreID {
+	var id core.MeshCoreID
 	if len(n.PubKey) >= 32 {
 		copy(id[:], n.PubKey[:32])
 	}

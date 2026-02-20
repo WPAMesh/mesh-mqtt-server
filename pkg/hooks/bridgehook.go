@@ -12,15 +12,16 @@ import (
 	"sync"
 	"time"
 
-	"filippo.io/edwards25519"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kabili207/mesh-mqtt-server/pkg/config"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshcore/codec"
+	"github.com/kabili207/meshcore-go/core/codec"
+	mccrypto "github.com/kabili207/meshcore-go/core/crypto"
 	"github.com/kabili207/meshtastic-go/core/crypto"
 	pb "github.com/kabili207/meshtastic-go/core/proto"
+
+	"github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
@@ -141,7 +142,7 @@ func (h *BridgeHook) Init(config any) error {
 			continue
 		}
 		idx.meshCoreKey = mcKey
-		idx.meshCoreHash = ComputeChannelHash(mcKey)
+		idx.meshCoreHash = mccrypto.ComputeChannelHash(mcKey)
 
 		// Get Meshtastic PSK for the channel
 		mtKey := h.getMeshtasticKey(mapping.MeshtasticChannel)
@@ -543,18 +544,18 @@ func (h *BridgeHook) handleMeshCoreMessage(pk packets.Packet, meshID string) {
 		}
 
 		// Try to decrypt
-		ciphertextWithMAC := make([]byte, len(grpPayload.Ciphertext)+meshCoreCipherMACSize)
+		ciphertextWithMAC := make([]byte, len(grpPayload.Ciphertext)+mccrypto.CipherMACSize)
 		binary.LittleEndian.PutUint16(ciphertextWithMAC[0:2], grpPayload.MAC)
-		copy(ciphertextWithMAC[meshCoreCipherMACSize:], grpPayload.Ciphertext)
+		copy(ciphertextWithMAC[mccrypto.CipherMACSize:], grpPayload.Ciphertext)
 
-		plaintext, err := DecryptGroupMessage(ciphertextWithMAC, idx.meshCoreKey)
+		plaintext, err := mccrypto.DecryptGroupMessage(ciphertextWithMAC, idx.meshCoreKey)
 		if err != nil {
 			h.Log.Debug("failed to decrypt MeshCore message", "error", err)
 			continue
 		}
 
 		// Parse the plaintext
-		_, txtType, message, err := ParseGrpTxtPlaintext(plaintext)
+		_, txtType, message, err := mccrypto.ParseGrpTxtPlaintext(plaintext)
 		if err != nil {
 			h.Log.Debug("failed to parse GRP_TXT plaintext", "error", err)
 			continue
@@ -636,10 +637,10 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 	timestamp := uint32(time.Now().Unix())
 
 	// Build plaintext
-	plaintext := BuildGrpTxtPlaintext(timestamp, message)
+	plaintext := mccrypto.BuildGrpTxtPlaintext(timestamp, message)
 
 	// Encrypt
-	encrypted, err := EncryptGroupMessage(plaintext, idx.meshCoreKey)
+	encrypted, err := mccrypto.EncryptGroupMessage(plaintext, idx.meshCoreKey)
 	if err != nil {
 		h.Log.Error("failed to encrypt MeshCore message", "error", err)
 		return
@@ -864,16 +865,6 @@ func (h *BridgeHook) lookupVirtualNodeMCInfo(virtualNodeID uint32) *models.MeshC
 	return mcNode
 }
 
-// ed25519PubKeyToX25519 converts an Ed25519 public key to an X25519 public key
-// by converting from Edwards to Montgomery form.
-func ed25519PubKeyToX25519(edPubKey []byte) ([]byte, error) {
-	point, err := new(edwards25519.Point).SetBytes(edPubKey)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Ed25519 public key: %w", err)
-	}
-	return point.BytesMontgomery(), nil
-}
-
 // broadcastVirtualNodeInfo broadcasts NODEINFO for a virtual node so Meshtastic clients
 // can learn about it. This is called when a virtual node first sends a message.
 func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualNodeID uint32, displayName string) {
@@ -894,7 +885,7 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 	var x25519Key []byte
 	if mcNode := h.lookupVirtualNodeMCInfo(virtualNodeID); mcNode != nil {
 		nodeType = mcNode.NodeType
-		if k, err := ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
+		if k, err := mccrypto.Ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
 			x25519Key = k
 		}
 	}
@@ -1009,7 +1000,7 @@ func (h *BridgeHook) respondToNodeInfoRequest(idx *channelMappingIndex, requestP
 	var x25519Key []byte
 	if mcNode := h.lookupVirtualNodeMCInfo(virtualNodeID); mcNode != nil {
 		nodeType = mcNode.NodeType
-		if k, err := ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
+		if k, err := mccrypto.Ed25519PubKeyToX25519(mcNode.PubKey); err == nil {
 			x25519Key = k
 		}
 	}

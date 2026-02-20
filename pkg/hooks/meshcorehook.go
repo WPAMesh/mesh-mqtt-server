@@ -9,8 +9,9 @@ import (
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 
+	"github.com/kabili207/meshcore-go/core/codec"
+
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
-	"github.com/kabili207/mesh-mqtt-server/pkg/meshcore/codec"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )

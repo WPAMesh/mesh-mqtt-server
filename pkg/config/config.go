@@ -9,6 +9,8 @@ type Configuration struct {
 	ListenAddr    string
 	SessionSecret string
 	BaseURL       string
+	LogLevel      string
+	LogFormat     string
 	OAuth         struct {
 		Discord oauth2.Config
 	}

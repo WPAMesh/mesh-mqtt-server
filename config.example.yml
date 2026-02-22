@@ -4,6 +4,14 @@
 # Copy this file to config.yml and adjust values for your deployment.
 # All sections are optional unless noted otherwise.
 
+# Log level: debug, info, warn, error (default: info)
+# Can be overridden with LOG_LEVEL or DEBUG env vars
+# logLevel: info
+
+# Log format: color (default), json, journal (systemd)
+# Can be overridden with LOG_FORMAT env var
+# logFormat: color
+
 # Address the web UI listens on (default: ":8000")
 listenAddr: ":8000"
 

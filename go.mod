@@ -8,6 +8,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/kabili207/meshcore-go v0.0.0-20260220155357-12223ce1b265
 	github.com/kabili207/meshtastic-go/core v0.0.0-20260215001351-6354c11f9af3
+	github.com/kabili207/slog-helper v0.0.0-20260201213527-48e02fc93332
 	google.golang.org/protobuf v1.36.7
 )
 
@@ -32,6 +33,7 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/systemd/slog-journal v0.1.2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
@@ -41,7 +43,7 @@ require (
 )
 
 require (
-	github.com/MatusOllah/slogcolor v1.7.0
+	github.com/MatusOllah/slogcolor v1.7.0 // indirect
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/url"
 	"os"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/jmoiron/sqlx"
+	sloghelper "github.com/kabili207/slog-helper"
 	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	cfg "github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/discord"
@@ -21,66 +21,42 @@ import (
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/spf13/viper"
-
-	"github.com/MatusOllah/slogcolor"
 )
-
-var (
-	config cfg.Configuration
-	logger *slog.Logger
-)
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func init() {
-	logLevel := slog.LevelDebug
-	if os.Getenv("DEBUG") != "" {
-		logLevel = slog.LevelDebug
-	}
-	opts := slogcolor.DefaultOptions
-	opts.Level = logLevel
-	logger = slog.New(slogcolor.NewHandler(os.Stdout, opts))
-	slog.SetDefault(logger)
-
-	configPath := flag.String("c", "config.yml", "The path to the config file")
-	flag.Parse()
-	f, err := os.Open(*configPath)
-	check(err)
-	viper.AutomaticEnv()
-	viper.SetConfigType("yml")
-
-	err = viper.ReadConfig(f)
-	check(err)
-	err = viper.Unmarshal(&config, viper.DecodeHook(mapstructure.TextUnmarshallerHookFunc()))
-	check(err)
-}
 
 func main() {
+	sloghelper.InitFromEnv()
+
+	if err := run(); err != nil {
+		slog.Error("Fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	config, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	sloghelper.InitFromConfig(config.LogLevel, config.LogFormat, "")
 
 	// Generate hash and salt
 	hash, salt := auth.GenerateHashAndSalt("YhyxnE4QPUGZ7^oGJ@zb")
 	fmt.Printf("Hash: %s\nSalt%s\n", hash, salt)
 
-	database, err := setupDatabase(config)
+	database, err := setupDatabase(*config)
 	if err != nil {
-		fmt.Println("error connecting to database,", err)
-		return
+		return fmt.Errorf("error connecting to database: %w", err)
 	}
 
 	storage, err := store.New(database)
 	if err != nil {
-		fmt.Println("error initializing storage,", err)
-		return
+		return fmt.Errorf("error initializing storage: %w", err)
 	}
 
 	err = storage.RunMigrations()
 	if err != nil {
-		fmt.Println("error running migrations,", err)
-		return
+		return fmt.Errorf("error running migrations: %w", err)
 	}
 
 	sigs := make(chan os.Signal, 1)
@@ -99,7 +75,7 @@ func main() {
 	caps.MaximumClientWritesPending = 1024   // Pending outbound messages
 	server := mqtt.New(&mqtt.Options{
 		InlineClient: true, // you must enable inline client to use direct publishing and subscribing.
-		Logger:       logger,
+		Logger:       slog.Default(),
 		Capabilities: caps,
 	})
 
@@ -111,7 +87,7 @@ func main() {
 
 	err = server.AddListener(tcp)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error adding TCP listener: %w", err)
 	}
 
 	// Create router and client notifier first
@@ -127,7 +103,7 @@ func main() {
 		ClientNotifier: clientNotifier,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error adding auth hook: %w", err)
 	}
 
 	router.MqttServer = authHook
@@ -141,7 +117,7 @@ func main() {
 		AuthHook:     authHook,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error adding meshtastic hook: %w", err)
 	}
 
 	// Register Meshtastic hook as enricher, ACL checker, and lifecycle listener
@@ -157,7 +133,7 @@ func main() {
 			Settings: config.Forwarding,
 		})
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("error adding forwarding hook: %w", err)
 		}
 		router.ForwardingHook = forwardingHook
 	}
@@ -173,7 +149,7 @@ func main() {
 			AuthHook: authHook,
 		})
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("error adding meshcore hook: %w", err)
 		}
 		authHook.RegisterClientEnricher(meshCoreHook)
 		authHook.RegisterACLChecker(meshCoreHook)
@@ -190,7 +166,7 @@ func main() {
 			Storage:      storage,
 		})
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("error adding bridge hook: %w", err)
 		}
 	}
 
@@ -203,14 +179,14 @@ func main() {
 	go func() {
 		err := server.Serve()
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("MQTT server error", "error", err)
 		}
 	}()
 
 	go func() {
-		err := router.Initialize(config, *storage)
+		err := router.Initialize(*config, *storage)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("Web router error", "error", err)
 		}
 	}()
 
@@ -221,7 +197,7 @@ func main() {
 	}
 
 	<-done
-	server.Log.Warn("caught signal, stopping...")
+	slog.Warn("caught signal, stopping...")
 
 	// Stop background tasks
 	if roleSync != nil {
@@ -242,12 +218,35 @@ func main() {
 	}
 
 	_ = server.Close()
-	server.Log.Info("main.go finished")
+	slog.Info("main.go finished")
+	return nil
+}
+
+func loadConfig() (*cfg.Configuration, error) {
+	configPath := flag.String("c", "config.yml", "The path to the config file")
+	flag.Parse()
+
+	f, err := os.Open(*configPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	viper.AutomaticEnv()
+	viper.SetConfigType("yml")
+
+	if err := viper.ReadConfig(f); err != nil {
+		return nil, err
+	}
+
+	var config cfg.Configuration
+	if err := viper.Unmarshal(&config, viper.DecodeHook(mapstructure.TextUnmarshallerHookFunc())); err != nil {
+		return nil, err
+	}
+	return &config, nil
 }
 
 func setupDatabase(config cfg.Configuration) (*sqlx.DB, error) {
-	// change "postgres" for whatever supported database you want to use
-
 	// PgBouncer has problems with prepared statements in transaction mode
 	// so we have to force binary_parameters
 	// https://blog.bullgare.com/2019/06/pgbouncer-and-prepared-statements/
@@ -263,14 +262,12 @@ func setupDatabase(config cfg.Configuration) (*sqlx.DB, error) {
 	}
 
 	db, err := sqlx.Open("postgres", dbUrl.String())
-
 	if err != nil {
 		return nil, err
 	}
 
 	// ping the DB to ensure that it is connected
 	err = db.Ping()
-
 	if err != nil {
 		return nil, err
 	}

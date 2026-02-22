@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -18,6 +19,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
+	mccodec "github.com/kabili207/meshcore-go/core/codec"
 	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"golang.org/x/oauth2"
 )
@@ -152,6 +154,8 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/api/users/{id}", wr.deleteUser).Methods("DELETE")
 	myRouter.HandleFunc("/api/forwarding/status", wr.getForwardingStatus).Methods("GET")
 	myRouter.HandleFunc("/api/gateway-stats", wr.getGatewayStats).Methods("GET")
+	myRouter.HandleFunc("/api/map-data", wr.getMapData).Methods("GET")
+	myRouter.HandleFunc("/map", wr.mapPage)
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
 	myRouter.HandleFunc("/auth/discord/callback", wr.discordCallbackHandler)
@@ -449,6 +453,12 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		var lat, lon *float64
+		if c.NodeDetails != nil {
+			lat = c.NodeDetails.Latitude
+			lon = c.NodeDetails.Longitude
+		}
+
 		nr := components.NodeData{
 			NodeID:           nodeID,
 			ShortName:        c.GetShortName(),
@@ -458,6 +468,8 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 			RootTopic:        c.RootTopic,
 			NodeRole:         nodeRole,
 			HwModel:          hwModel,
+			Latitude:         lat,
+			Longitude:        lon,
 			LastSeen:         lastSeen,
 			IsDownlink:       c.IsDownlinkVerified(),
 			IsValidGateway:   c.IsValidGateway(),
@@ -502,6 +514,8 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 					NodeColor:      n.GetNodeColor(),
 					NodeRole:       n.NodeRole,
 					HwModel:        n.HwModel,
+					Latitude:       n.Latitude,
+					Longitude:      n.Longitude,
 					LastSeen:       lastSeen,
 					IsConnected:    false,
 					IsMeshDevice:   true,
@@ -852,4 +866,124 @@ func (wr *WebRouter) getGatewayStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(GatewayStatsResponse{
 		Gateways: gateways,
 	})
+}
+
+// truncatePosition applies precision-based fuzzing to coordinates, matching
+// the Meshtastic firmware's computeImpreciseLatLon algorithm. It masks the
+// low-order bits of the integer coordinate and centers the result within the
+// quantization cell. precisionBits controls accuracy: 14 ≈ 1.5km, 16 ≈ 364m.
+func truncatePosition(lat, lon float64, precisionBits uint8) (float64, float64) {
+	if precisionBits == 0 || precisionBits >= 32 {
+		return lat, lon
+	}
+	latI := int32(lat * 1e7)
+	lonI := int32(lon * 1e7)
+
+	mask := uint32(0xFFFFFFFF) << (32 - precisionBits)
+	centerOffset := uint32(1) << (31 - precisionBits)
+
+	latU := (uint32(latI) & mask) + centerOffset
+	lonU := (uint32(lonI) & mask) + centerOffset
+
+	return float64(int32(latU)) * 1e-7, float64(int32(lonU)) * 1e-7
+}
+
+// MapNodeData is a lightweight node representation for the map endpoint
+type MapNodeData struct {
+	NodeID         string  `json:"node_id"`
+	ShortName      string  `json:"short_name"`
+	LongName       string  `json:"long_name"`
+	NodeColor      string  `json:"node_color"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	IsValidGateway bool    `json:"is_valid_gateway"`
+	IsConnected    bool    `json:"is_connected"`
+	NodeRole       string  `json:"node_role,omitempty"`
+	Source         string  `json:"source"`
+	UserDisplay    string  `json:"user_display,omitempty"`
+}
+
+func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	nodes, _, _ := wr.getNodesData(user, true, false, false)
+
+	mapNodes := []MapNodeData{}
+
+	// Meshtastic nodes with location
+	for _, n := range nodes {
+		if n.Latitude == nil || n.Longitude == nil {
+			continue
+		}
+		mapNodes = append(mapNodes, MapNodeData{
+			NodeID:         n.NodeID,
+			ShortName:      n.ShortName,
+			LongName:       n.LongName,
+			NodeColor:      n.NodeColor,
+			Latitude:       *n.Latitude,
+			Longitude:      *n.Longitude,
+			IsValidGateway: n.IsValidGateway,
+			IsConnected:    n.IsConnected,
+			NodeRole:       n.NodeRole,
+			Source:         "meshtastic",
+			UserDisplay:    n.UserDisplay,
+		})
+	}
+
+	// MeshCore nodes with location
+	mcNodes, err := wr.storage.MeshCoreNodes.GetAllNodes()
+	if err == nil {
+		for _, mc := range mcNodes {
+			if !mc.HasLocation() {
+				continue
+			}
+			fullHex := strings.ToUpper(mc.GetMeshCoreID().String())
+			nodeID := fullHex[:8] + "..." + fullHex[len(fullHex)-8:]
+			lat, lon := truncatePosition(*mc.Latitude, *mc.Longitude, 14)
+			mapNodes = append(mapNodes, MapNodeData{
+				NodeID:    nodeID,
+				ShortName: mc.Name,
+				LongName:  mc.Name,
+				NodeColor: "#6c757d",
+				Latitude:  lat,
+				Longitude: lon,
+				NodeRole:  mccodec.NodeTypeName(uint8(mc.NodeType)),
+				Source:    "meshcore",
+			})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(mapNodes)
+}
+
+func (wr *WebRouter) mapPage(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	if !user.IsSuperuser {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	pageData := components.MapPageData{
+		IsSuperuser: true,
+	}
+
+	if err := components.MapPage(pageData).Render(r.Context(), w); err != nil {
+		slog.Error("error rendering map page", "error", err)
+		http.Error(w, "Error rendering page", http.StatusInternalServerError)
+	}
 }

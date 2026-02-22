@@ -112,6 +112,18 @@ func (h *MeshtasticHook) processMeshPacket(client *models.ClientDetails, env *pb
 		if err == nil {
 			go h.processNodeInfo(client, env, data, &u)
 		}
+	case pb.PortNum_POSITION_APP:
+		var pos = pb.Position{}
+		err := proto.Unmarshal(data.Payload, &pos)
+		if err == nil {
+			go h.processPosition(client, env, &pos)
+		}
+	case pb.PortNum_MAP_REPORT_APP:
+		var report = pb.MapReport{}
+		err := proto.Unmarshal(data.Payload, &report)
+		if err == nil {
+			go h.processMapReport(client, env, &report)
+		}
 	}
 
 }
@@ -341,4 +353,102 @@ func (c *MeshtasticHook) getHopsAway(packet *pb.MeshPacket) int {
 	}
 
 	return int(packet.HopStart - packet.HopLimit)
+}
+
+func (h *MeshtasticHook) processPosition(c *models.ClientDetails, env *pb.ServiceEnvelope, pos *pb.Position) {
+	if c == nil || !c.IsMeshDevice() {
+		return
+	}
+
+	pkt := env.GetPacket()
+	if pkt == nil {
+		return
+	}
+
+	sendingNode := meshtastic.NodeID(pkt.From)
+	if env.GatewayId != sendingNode.String() {
+		return
+	}
+
+	if pos.LatitudeI == nil || pos.LongitudeI == nil {
+		return
+	}
+
+	lat := float64(*pos.LatitudeI) * 1e-7
+	lon := float64(*pos.LongitudeI) * 1e-7
+
+	if c.NodeDetails == nil {
+		nid, err := meshtastic.ParseNodeID(env.GatewayId)
+		if err != nil {
+			return
+		}
+		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), c.UserID)
+		if err != nil {
+			h.Log.Error("error loading node info", "node_id", nid, "user_id", c.UserID, "error", err)
+			return
+		} else if nodeDetails == nil {
+			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: c.UserID}
+		}
+		c.NodeDetails = nodeDetails
+	}
+
+	c.NodeDetails.Latitude = &lat
+	c.NodeDetails.Longitude = &lon
+	c.NodeDetails.LastSeen = util.Ptr(time.Now())
+
+	err := h.config.Storage.NodeDB.SaveInfo(c.NodeDetails)
+	if err != nil {
+		h.Log.Error("error saving node position", "node", c.NodeDetails.NodeID, "client", c.ClientID, "error", err)
+		return
+	}
+	h.Log.Info("updated node position", "node", c.NodeDetails.NodeID, "lat", lat, "lon", lon)
+}
+
+func (h *MeshtasticHook) processMapReport(c *models.ClientDetails, env *pb.ServiceEnvelope, report *pb.MapReport) {
+	if c == nil || !c.IsMeshDevice() {
+		return
+	}
+
+	pkt := env.GetPacket()
+	if pkt == nil {
+		return
+	}
+
+	sendingNode := meshtastic.NodeID(pkt.From)
+	if env.GatewayId != sendingNode.String() {
+		return
+	}
+
+	if report.LatitudeI == 0 && report.LongitudeI == 0 {
+		return
+	}
+
+	lat := float64(report.LatitudeI) * 1e-7
+	lon := float64(report.LongitudeI) * 1e-7
+
+	if c.NodeDetails == nil {
+		nid, err := meshtastic.ParseNodeID(env.GatewayId)
+		if err != nil {
+			return
+		}
+		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), c.UserID)
+		if err != nil {
+			h.Log.Error("error loading node info", "node_id", nid, "user_id", c.UserID, "error", err)
+			return
+		} else if nodeDetails == nil {
+			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: c.UserID}
+		}
+		c.NodeDetails = nodeDetails
+	}
+
+	c.NodeDetails.Latitude = &lat
+	c.NodeDetails.Longitude = &lon
+	c.NodeDetails.LastSeen = util.Ptr(time.Now())
+
+	err := h.config.Storage.NodeDB.SaveInfo(c.NodeDetails)
+	if err != nil {
+		h.Log.Error("error saving node position from map report", "node", c.NodeDetails.NodeID, "client", c.ClientID, "error", err)
+		return
+	}
+	h.Log.Info("updated node position from map report", "node", c.NodeDetails.NodeID, "lat", lat, "lon", lon)
 }

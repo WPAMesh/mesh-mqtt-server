@@ -1,0 +1,150 @@
+package components
+
+templ MapPage(data MapPageData) {
+	@Base("Node Map - WPAmesh") {
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin=""/>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin=""/>
+		<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+		@Layout(LayoutProps{
+			IsSuperuser:    data.IsSuperuser,
+			ShowSetupGuide: false,
+		}) {
+			<div class="table-controls">
+				<h3>Node Map</h3>
+				<div class="filter-controls">
+					<label class="toggle-label text-sm">
+						Valid Gateways Only
+						<input type="checkbox" id="filter-gateway" class="toggle-checkbox"/>
+						<span class="toggle-switch"></span>
+					</label>
+					<label class="toggle-label text-sm">
+						MeshCore Nodes
+						<input type="checkbox" id="filter-meshcore" class="toggle-checkbox" checked/>
+						<span class="toggle-switch"></span>
+					</label>
+				</div>
+			</div>
+			<div id="node-map"></div>
+			<script>
+				(function() {
+					var map = L.map('node-map').setView([40.44, -79.99], 10);
+
+					L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+						maxZoom: 19
+					}).addTo(map);
+
+					var clusterGroup = L.markerClusterGroup({
+						maxClusterRadius: 40,
+						spiderfyOnMaxZoom: true,
+						showCoverageOnHover: false,
+						zoomToBoundsOnClick: true,
+						spiderfyDistanceMultiplier: 2,
+						iconCreateFunction: function(cluster) {
+							var count = cluster.getChildCount();
+							var size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
+							return L.divIcon({
+								html: '<div><span>' + count + '</span></div>',
+								className: 'marker-cluster marker-cluster-' + size,
+								iconSize: L.point(40, 40)
+							});
+						}
+					});
+					map.addLayer(clusterGroup);
+
+					var allItems = [];
+					var gatewayFilter = document.getElementById('filter-gateway');
+					var meshcoreFilter = document.getElementById('filter-meshcore');
+
+					function rebuildClusters() {
+						var gwOnly = gatewayFilter.checked;
+						var showMC = meshcoreFilter.checked;
+						clusterGroup.clearLayers();
+						allItems.forEach(function(item) {
+							var visible = true;
+							if (gwOnly && !item.data.is_valid_gateway) visible = false;
+							if (!showMC && item.data.source === 'meshcore') visible = false;
+							if (visible) {
+								clusterGroup.addLayer(item.marker);
+							}
+						});
+					}
+
+					gatewayFilter.addEventListener('change', rebuildClusters);
+					meshcoreFilter.addEventListener('change', rebuildClusters);
+
+					fetch('/api/map-data')
+						.then(function(r) { return r.json(); })
+						.then(function(nodes) {
+							if (!nodes || nodes.length === 0) return;
+
+							var bounds = [];
+							nodes.forEach(function(node) {
+								var color = node.node_color || '#6c757d';
+								var radius = 8;
+								var weight = 2;
+								var fillOpacity = 0.8;
+
+								if (node.is_valid_gateway) {
+									radius = 12;
+									weight = 3;
+								}
+
+								var marker = L.circleMarker([node.latitude, node.longitude], {
+									radius: radius,
+									fillColor: color,
+									color: node.is_valid_gateway ? '#fff' : color,
+									weight: weight,
+									opacity: 1,
+									fillOpacity: fillOpacity
+								});
+
+								var statusParts = [];
+								if (node.is_connected) {
+									statusParts.push('<span style="color: var(--mg-color-green)">Connected</span>');
+								} else {
+									statusParts.push('<span style="color: var(--mg-color-tertiary)">Offline</span>');
+								}
+								if (node.is_valid_gateway) {
+									statusParts.push('<span style="color: var(--mg-color-blue)">Valid Gateway</span>');
+								}
+
+								var sourceLabel = node.source === 'meshcore' ? 'MeshCore' : 'Meshtastic';
+
+								var popup = '<div class="map-popup">' +
+									'<strong>' + escapeHtml(node.long_name) + '</strong>' +
+									'<br><code>' + escapeHtml(node.node_id) + '</code>' +
+									(node.node_role ? '<br>Role: ' + escapeHtml(node.node_role) : '') +
+									'<br>Source: ' + sourceLabel +
+									(node.user_display ? '<br>User: ' + escapeHtml(node.user_display) : '') +
+									'<br>' + statusParts.join(' &middot; ') +
+									'<br><small>' + node.latitude.toFixed(5) + ', ' + node.longitude.toFixed(5) + '</small>' +
+									'</div>';
+
+								marker.bindPopup(popup);
+								clusterGroup.addLayer(marker);
+								bounds.push([node.latitude, node.longitude]);
+
+								allItems.push({marker: marker, data: node});
+							});
+
+							if (bounds.length > 0) {
+								map.fitBounds(bounds, {padding: [30, 30]});
+							}
+						})
+						.catch(function(err) {
+							console.error('Failed to load map data:', err);
+						});
+
+					function escapeHtml(str) {
+						var div = document.createElement('div');
+						div.appendChild(document.createTextNode(str));
+						return div.innerHTML;
+					}
+				})();
+			</script>
+		}
+	}
+}

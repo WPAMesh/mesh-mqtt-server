@@ -26,6 +26,8 @@ type NodeData struct {
 	RootTopic        string             `json:"root_topic"`
 	NodeRole         string             `json:"node_role,omitempty"`
 	HwModel          string             `json:"hw_model,omitempty"`
+	Latitude         *float64           `json:"latitude,omitempty"`
+	Longitude        *float64           `json:"longitude,omitempty"`
 	LastSeen         *string            `json:"last_seen,omitempty"`
 	IsDownlink       bool               `json:"is_downlink"`
 	IsValidGateway   bool               `json:"is_valid_gateway"`
@@ -89,6 +91,11 @@ type AllNodesPageData struct {
 
 // UsersPageData holds data for the users page
 type UsersPageData struct {
+	IsSuperuser bool
+}
+
+// MapPageData holds data for the map page
+type MapPageData struct {
 	IsSuperuser bool
 }
 

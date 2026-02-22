@@ -1372,6 +1372,76 @@ tr.has-errors .gw-badge.gw-invalid {
   font-style: italic;
 }
 
+/* Node Map */
+#node-map {
+  height: 600px;
+  border-radius: 0.5rem;
+  background: var(--mg-color-quinary);
+  border: 1px solid var(--mg-color-quaternary);
+}
+
+.map-popup {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.map-popup strong {
+  font-size: 1rem;
+}
+
+.map-popup code {
+  background: #eee;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  font-size: 0.8rem;
+}
+
+/* Map cluster overrides */
+.marker-cluster {
+  background-clip: padding-box;
+  border-radius: 20px;
+}
+
+.marker-cluster div {
+  width: 30px;
+  height: 30px;
+  margin-left: 5px;
+  margin-top: 5px;
+  text-align: center;
+  border-radius: 15px;
+  font: 12px Roboto, sans-serif;
+  font-weight: bold;
+  color: #fff;
+}
+
+.marker-cluster span {
+  line-height: 30px;
+}
+
+.marker-cluster-small {
+  background: rgba(80, 163, 103, 0.4);
+}
+
+.marker-cluster-small div {
+  background: rgba(80, 163, 103, 0.8);
+}
+
+.marker-cluster-medium {
+  background: rgba(0, 123, 255, 0.4);
+}
+
+.marker-cluster-medium div {
+  background: rgba(0, 123, 255, 0.8);
+}
+
+.marker-cluster-large {
+  background: rgba(253, 126, 20, 0.4);
+}
+
+.marker-cluster-large div {
+  background: rgba(253, 126, 20, 0.8);
+}
+
 /* ========================================
    Mobile Responsive Styles
    All mobile overrides at the end for clean cascade

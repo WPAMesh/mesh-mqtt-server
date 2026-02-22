@@ -272,6 +272,12 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			nodeColor = c.NodeDetails.GetNodeColor()
 		}
 
+		var lat, lon *float64
+		if c.NodeDetails != nil {
+			lat = c.NodeDetails.Latitude
+			lon = c.NodeDetails.Longitude
+		}
+
 		nodes = append(nodes, components.NodeData{
 			NodeID:           nodeID,
 			ShortName:        c.GetShortName(),
@@ -282,6 +288,8 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			RootTopic:        c.RootTopic,
 			NodeRole:         nodeRole,
 			HwModel:          hwModel,
+			Latitude:         lat,
+			Longitude:        lon,
 			LastSeen:         lastSeen,
 			IsDownlink:       c.IsDownlinkVerified(),
 			IsValidGateway:   c.IsValidGateway(),
@@ -318,6 +326,8 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 					NodeColor:      n.GetNodeColor(),
 					NodeRole:       n.NodeRole,
 					HwModel:        n.HwModel,
+					Latitude:       n.Latitude,
+					Longitude:      n.Longitude,
 					LastSeen:       lastSeen,
 					IsConnected:    false,
 					IsMeshDevice:   true,

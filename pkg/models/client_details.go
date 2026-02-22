@@ -92,8 +92,15 @@ type NodeInfo struct {
 	NodeRole       string            `db:"node_role"`
 	HwModel        string            `db:"hw_model"`
 	PrimaryChannel string            `db:"primary_channel"`
+	Latitude       *float64          `db:"latitude"`
+	Longitude      *float64          `db:"longitude"`
 	LastSeen       *time.Time        `db:"last_seen"`
 	VerifiedDate   *time.Time        `db:"last_verified"`
+}
+
+// HasLocation returns true if the node has valid location data.
+func (n *NodeInfo) HasLocation() bool {
+	return n.Latitude != nil && n.Longitude != nil
 }
 
 func (c *ClientDetails) IsMeshDevice() bool {

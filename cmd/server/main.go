@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kabili207/mesh-mqtt-server/pkg/auth"
 	cfg "github.com/kabili207/mesh-mqtt-server/pkg/config"
+	"github.com/kabili207/mesh-mqtt-server/pkg/discord"
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
 	"github.com/kabili207/mesh-mqtt-server/pkg/routes"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
@@ -213,8 +214,19 @@ func main() {
 		}
 	}()
 
+	// Start Discord admin role sync if configured
+	roleSync := discord.NewRoleSync(config.Discord, *storage)
+	if roleSync != nil {
+		go roleSync.Start()
+	}
+
 	<-done
 	server.Log.Warn("caught signal, stopping...")
+
+	// Stop background tasks
+	if roleSync != nil {
+		roleSync.Stop()
+	}
 
 	// Stop hooks gracefully
 	_ = authHook.Stop()

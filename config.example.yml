@@ -39,6 +39,11 @@ discord:
   # Discord role ID that grants admin access (optional)
   # Users with this role can view all nodes, map, and manage non-superuser users.
   # adminRoleId: "1234567890123456789"
+  # Bot token for background admin role syncing (optional).
+  # When set alongside adminRoleId, the server periodically checks each
+  # registered user's Discord roles and updates their admin status.
+  # Requires the bot to be added to the guild with no special permissions.
+  # botToken: "your-discord-bot-token"
 
 # =============================================================================
 # Meshtastic Settings

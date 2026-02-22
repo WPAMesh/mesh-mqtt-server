@@ -31,6 +31,10 @@ type DiscordSettings struct {
 	GuildID string
 	// AdminRoleID is the Discord role ID that grants admin access (optional)
 	AdminRoleID string
+	// BotToken is the Discord bot token for background role syncing (optional).
+	// When set alongside AdminRoleID, the server periodically checks each
+	// registered user's Discord roles and updates their admin status.
+	BotToken string
 }
 
 type MeshSettings struct {

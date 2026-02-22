@@ -106,11 +106,14 @@
 
 .toggle-switch {
   position: relative;
+  display: inline-block;
   width: 44px;
+  min-width: 44px;
   height: 24px;
   background: var(--mg-color-quaternary);
   border-radius: 12px;
   transition: background 0.2s ease;
+  flex-shrink: 0;
 }
 
 .toggle-switch::after {

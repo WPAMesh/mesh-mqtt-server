@@ -628,7 +628,6 @@ func (wr *WebRouter) getUsers(w http.ResponseWriter, r *http.Request) {
 type UpdateUserRequest struct {
 	DisplayName      *string `json:"display_name"`
 	UserName         string  `json:"username"`
-	IsSuperuser      bool    `json:"is_superuser"`
 	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
 }
 
@@ -671,10 +670,9 @@ func (wr *WebRouter) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update fields
+	// Update fields (IsSuperuser intentionally not editable via API)
 	existingUser.DisplayName = req.DisplayName
 	existingUser.UserName = req.UserName
-	existingUser.IsSuperuser = req.IsSuperuser
 	existingUser.IsGatewayAllowed = req.IsGatewayAllowed
 
 	err = wr.storage.Users.UpdateUser(existingUser)

@@ -39,7 +39,6 @@ templ UsersPage(data UsersPageData) {
 							<th>Username</th>
 							<th>Display Name</th>
 							<th>Created</th>
-							<th>Superuser</th>
 							<th>Gateway Allowed</th>
 							<th>Actions</th>
 						</tr>
@@ -65,7 +64,6 @@ templ UsersPage(data UsersPageData) {
 					document.getElementById('edit-user-id').value = user.id;
 					document.getElementById('edit-username').value = user.username;
 					document.getElementById('edit-display-name').value = user.display_name || '';
-					document.getElementById('edit-superuser').checked = user.is_superuser;
 					document.getElementById('edit-gateway-allowed').checked = user.is_gateway_allowed;
 
 					document.getElementById('edit-user-modal').classList.add('opened');
@@ -79,7 +77,6 @@ templ UsersPage(data UsersPageData) {
 					const userId = document.getElementById('edit-user-id').value;
 					const username = document.getElementById('edit-username').value.trim();
 					const displayName = document.getElementById('edit-display-name').value.trim();
-					const isSuperuser = document.getElementById('edit-superuser').checked;
 					const isGatewayAllowed = document.getElementById('edit-gateway-allowed').checked;
 
 					if (!username) {
@@ -90,7 +87,6 @@ templ UsersPage(data UsersPageData) {
 					const requestData = {
 						username: username,
 						display_name: displayName || null,
-						is_superuser: isSuperuser,
 						is_gateway_allowed: isGatewayAllowed
 					};
 
@@ -226,6 +222,11 @@ templ UsersPage(data UsersPageData) {
 					margin-bottom: 0.5rem;
 				}
 
+				.form-group label.toggle-label {
+					display: inline-flex;
+					margin-bottom: 0;
+				}
+
 				#users-table .error-message {
 					color: #ff4444;
 					text-align: center;
@@ -261,13 +262,6 @@ templ EditUserModal() {
 					</div>
 					<div class="form-group">
 						<label class="toggle-label">
-							<input type="checkbox" id="edit-superuser" class="toggle-checkbox"/>
-							<span class="toggle-switch"></span>
-							Superuser
-						</label>
-					</div>
-					<div class="form-group">
-						<label class="toggle-label">
 							<input type="checkbox" id="edit-gateway-allowed" class="toggle-checkbox"/>
 							<span class="toggle-switch"></span>
 							Gateway Allowed
@@ -296,19 +290,14 @@ templ UserRow(user UserRowData) {
 			}
 		</td>
 		<td data-label="Created">{ user.Created }</td>
-		<td data-label="Superuser">
-			if user.IsSuperuser {
-				&#x2713;
-			}
-		</td>
 		<td data-label="Gateway">
 			if user.IsGatewayAllowed {
 				&#x2713;
 			}
 		</td>
 		<td data-label="Actions">
-			<button class="btn btn-sm btn-primary" onclick={ templ.ComponentScript{Call: "editUser(" + intToStr(user.ID) + ")"} }>Edit</button>
-			<button class="btn btn-sm btn-danger" onclick={ templ.ComponentScript{Call: "confirmDeleteUser(" + intToStr(user.ID) + ", '" + user.UserName + "')"} }>Delete</button>
+			<button class="btn btn-sm btn-primary" onclick={ templ.JSFuncCall("editUser", user.ID) }>Edit</button>
+			<button class="btn btn-sm btn-danger" onclick={ templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName) }>Delete</button>
 		</td>
 	</tr>
 }

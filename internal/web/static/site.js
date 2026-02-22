@@ -776,6 +776,10 @@ async function initUsersTable() {
     const response = await fetch('/api/users-html');
     if (response.ok) {
       usersTbody.innerHTML = await response.text();
+      // Execute inline scripts (e.g. allUsers data) since innerHTML doesn't run them
+      usersTbody.querySelectorAll('script').forEach(script => {
+        try { eval(script.textContent); } catch (e) { console.error('Error executing inline script:', e); }
+      });
     }
   } catch (error) {
     console.error('Error loading users:', error);

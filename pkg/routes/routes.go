@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -959,9 +960,15 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 
 	mapNodes := []MapNodeData{}
 
+	cutoffDate := time.Now().Add(time.Hour * -24)
+
 	// Meshtastic nodes with location
 	for _, n := range nodes {
-		if n.Latitude == nil || n.Longitude == nil {
+		if n.Latitude == nil || n.Longitude == nil || n.LastSeen == nil {
+			continue
+		}
+		lastSeen, err := time.ParseInLocation("2006-01-02 15:04:05", *n.LastSeen, time.UTC)
+		if err != nil || cutoffDate.After(lastSeen) {
 			continue
 		}
 		mapNodes = append(mapNodes, MapNodeData{
@@ -998,6 +1005,11 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 			if !mc.IsDirect || !mc.HasLocation() {
 				continue
 			}
+
+			if mc.LastSeen == nil || cutoffDate.After(*mc.LastSeen) {
+				continue
+			}
+
 			fullHex := strings.ToUpper(mc.GetMeshCoreID().String())
 			nodeID := fullHex[:8] + "..." + fullHex[len(fullHex)-8:]
 			lat, lon := *mc.Latitude, *mc.Longitude

@@ -24,15 +24,19 @@ type UserStore interface {
 	AddUser(user *models.User) error
 	DeleteUser(userID int) error
 	IsSuperuser(id int) (bool, error)
+	IsAdmin(id int) (bool, error)
+	SetAdminStatus(userID int, isAdmin bool) error
 	IsGatewayAllowed(id int) (bool, error)
 }
 
 type postgresUserStore struct {
 	db *sqlx.DB
 	//cfg    *conf.Config
-	suCache      map[int]bool
-	suCacheLock  sync.RWMutex
-	gatewayCache *ttlcache.Cache[int, bool]
+	suCache        map[int]bool
+	suCacheLock    sync.RWMutex
+	adminCache     map[int]bool
+	adminCacheLock sync.RWMutex
+	gatewayCache   *ttlcache.Cache[int, bool]
 }
 
 func NewUsers(dbconn *sqlx.DB) UserStore {
@@ -43,6 +47,7 @@ func NewUsers(dbconn *sqlx.DB) UserStore {
 	return &postgresUserStore{
 		db:           dbconn,
 		suCache:      make(map[int]bool),
+		adminCache:   make(map[int]bool),
 		gatewayCache: cache,
 	}
 }
@@ -133,6 +138,35 @@ func (b *postgresUserStore) IsSuperuser(id int) (bool, error) {
 	return false, err
 }
 
+func (b *postgresUserStore) IsAdmin(id int) (bool, error) {
+	b.adminCacheLock.RLock()
+	if isAdmin, ok := b.adminCache[id]; ok {
+		b.adminCacheLock.RUnlock()
+		return isAdmin, nil
+	}
+	b.adminCacheLock.RUnlock()
+	slog.Debug("IsAdmin cache miss, querying database", "user_id", id)
+	u, err := b.GetByID(id)
+	if u != nil {
+		b.adminCacheLock.Lock()
+		b.adminCache[id] = u.IsAdmin
+		b.adminCacheLock.Unlock()
+		return u.IsAdmin, nil
+	}
+	return false, err
+}
+
+func (b *postgresUserStore) SetAdminStatus(userID int, isAdmin bool) error {
+	stmt := `UPDATE users SET is_admin = $1 WHERE id = $2;`
+	_, err := b.db.Exec(stmt, isAdmin, userID)
+	if err == nil {
+		b.adminCacheLock.Lock()
+		delete(b.adminCache, userID)
+		b.adminCacheLock.Unlock()
+	}
+	return err
+}
+
 func (b *postgresUserStore) IsGatewayAllowed(id int) (bool, error) {
 	if gwAllowed := b.gatewayCache.Get(id, ttlcache.WithDisableTouchOnHit[int, bool]()); gwAllowed != nil {
 		return gwAllowed.Value(), nil
@@ -162,6 +196,7 @@ func (b *postgresUserStore) UpdateUser(user *models.User) error {
 	SET display_name = :display_name,
 	    mqtt_user = :mqtt_user,
 	    is_superuser = :is_superuser,
+	    is_admin = :is_admin,
 	    gateway_allowed = :gateway_allowed
 	WHERE id = :id;
 	`
@@ -172,6 +207,9 @@ func (b *postgresUserStore) UpdateUser(user *models.User) error {
 		b.suCacheLock.Lock()
 		delete(b.suCache, user.ID)
 		b.suCacheLock.Unlock()
+		b.adminCacheLock.Lock()
+		delete(b.adminCache, user.ID)
+		b.adminCacheLock.Unlock()
 		b.gatewayCache.Delete(user.ID)
 	}
 	return err
@@ -186,6 +224,9 @@ func (b *postgresUserStore) DeleteUser(userID int) error {
 		b.suCacheLock.Lock()
 		delete(b.suCache, userID)
 		b.suCacheLock.Unlock()
+		b.adminCacheLock.Lock()
+		delete(b.adminCache, userID)
+		b.adminCacheLock.Unlock()
 		b.gatewayCache.Delete(userID)
 	}
 	return err

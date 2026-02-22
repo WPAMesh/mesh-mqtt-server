@@ -9,6 +9,7 @@ type UserRowData struct {
 	UserName         string  `json:"username"`
 	DisplayName      *string `json:"display_name"`
 	IsSuperuser      bool    `json:"is_superuser"`
+	IsAdmin          bool    `json:"is_admin"`
 	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
 	Created          string  `json:"created"`
 }
@@ -26,6 +27,7 @@ templ UsersPage(data UsersPageData) {
 	@Base("User Management - WPAmesh") {
 		@Layout(LayoutProps{
 			IsSuperuser:    data.IsSuperuser,
+			IsAdmin:        data.IsAdmin,
 			ShowSetupGuide: false,
 		}) {
 			<div id="users-page">
@@ -38,6 +40,7 @@ templ UsersPage(data UsersPageData) {
 							<th>ID</th>
 							<th>Username</th>
 							<th>Display Name</th>
+							<th>Role</th>
 							<th>Created</th>
 							<th>Gateway Allowed</th>
 							<th>Actions</th>
@@ -227,6 +230,24 @@ templ UsersPage(data UsersPageData) {
 					margin-bottom: 0;
 				}
 
+				.badge {
+					display: inline-block;
+					padding: 0.2em 0.6em;
+					font-size: 0.8em;
+					font-weight: 600;
+					border-radius: 0.375rem;
+				}
+
+				.badge-superuser {
+					background-color: light-dark(#dc35451a, #dc354533);
+					color: light-dark(#dc3545, #ff6b6b);
+				}
+
+				.badge-admin {
+					background-color: light-dark(#0d6efd1a, #0d6efd33);
+					color: light-dark(#0d6efd, #6ea8fe);
+				}
+
 				#users-table .error-message {
 					color: #ff4444;
 					text-align: center;
@@ -278,7 +299,7 @@ templ EditUserModal() {
 }
 
 // UserRow renders a single user row in the table
-templ UserRow(user UserRowData) {
+templ UserRow(user UserRowData, viewerIsSuperuser bool) {
 	<tr>
 		<td data-label="ID">{ intToStr(user.ID) }</td>
 		<td data-label="Username">{ user.UserName }</td>
@@ -289,6 +310,13 @@ templ UserRow(user UserRowData) {
 				<em>Not set</em>
 			}
 		</td>
+		<td data-label="Role">
+			if user.IsSuperuser {
+				<span class="badge badge-superuser">Superuser</span>
+			} else if user.IsAdmin {
+				<span class="badge badge-admin">Admin</span>
+			}
+		</td>
 		<td data-label="Created">{ user.Created }</td>
 		<td data-label="Gateway">
 			if user.IsGatewayAllowed {
@@ -296,21 +324,23 @@ templ UserRow(user UserRowData) {
 			}
 		</td>
 		<td data-label="Actions">
-			<button class="btn btn-sm btn-primary" onclick={ templ.JSFuncCall("editUser", user.ID) }>Edit</button>
-			<button class="btn btn-sm btn-danger" onclick={ templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName) }>Delete</button>
+			if viewerIsSuperuser || !user.IsSuperuser {
+				<button class="btn btn-sm btn-primary" onclick={ templ.JSFuncCall("editUser", user.ID) }>Edit</button>
+				<button class="btn btn-sm btn-danger" onclick={ templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName) }>Delete</button>
+			}
 		</td>
 	</tr>
 }
 
 // UsersTableContent renders the users table body content
-templ UsersTableContent(users []UserRowData) {
+templ UsersTableContent(users []UserRowData, viewerIsSuperuser bool) {
 	if len(users) == 0 {
 		<tr>
 			<td colspan="7">No users found</td>
 		</tr>
 	} else {
 		for _, user := range users {
-			@UserRow(user)
+			@UserRow(user, viewerIsSuperuser)
 		}
 	}
 	<!-- Store users data for edit modal -->

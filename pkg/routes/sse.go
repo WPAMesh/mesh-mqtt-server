@@ -75,11 +75,11 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	query := r.URL.Query()
 	allUsers := query.Get("all_users") == "true"
-	isAdmin := user.IsSuperuser && allUsers
+	isAdmin := user.IsAdminOrAbove() && allUsers
 	connectedOnly := query.Get("filter-connected") == "on"
 	validGatewayOnly := query.Get("filter-gateway") == "on"
 
-	if allUsers && !user.IsSuperuser {
+	if allUsers && !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -362,7 +362,7 @@ func (wr *WebRouter) nodesHTML(w http.ResponseWriter, r *http.Request) {
 	validGatewayOnly := query.Get("filter-gateway") == "on"
 	allUsers := query.Get("all_users") == "true"
 
-	if allUsers && !user.IsSuperuser {
+	if allUsers && !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -392,7 +392,7 @@ func (wr *WebRouter) usersHTML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -411,13 +411,14 @@ func (wr *WebRouter) usersHTML(w http.ResponseWriter, r *http.Request) {
 			UserName:         u.UserName,
 			DisplayName:      u.DisplayName,
 			IsSuperuser:      u.IsSuperuser,
+			IsAdmin:          u.IsAdmin,
 			IsGatewayAllowed: u.IsGatewayAllowed,
 			Created:          u.Created.Format("2006-01-02 15:04:05"),
 		}
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	if err := components.UsersTableContent(userRows).Render(r.Context(), w); err != nil {
+	if err := components.UsersTableContent(userRows, user.IsSuperuser).Render(r.Context(), w); err != nil {
 		slog.Error("error rendering users HTML", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}

@@ -12,6 +12,7 @@ type Configuration struct {
 	OAuth         struct {
 		Discord oauth2.Config
 	}
+	Discord      DiscordSettings
 	MeshSettings MeshSettings
 	MeshCore     MeshCoreSettings
 	Forwarding   ForwardingSettings
@@ -22,6 +23,14 @@ type Configuration struct {
 		Host     string
 		DB       string
 	}
+}
+
+// DiscordSettings configures Discord guild membership and role-based access
+type DiscordSettings struct {
+	// GuildID is the Discord server ID for membership verification
+	GuildID string
+	// AdminRoleID is the Discord role ID that grants admin access (optional)
+	AdminRoleID string
 }
 
 type MeshSettings struct {

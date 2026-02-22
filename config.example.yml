@@ -31,6 +31,16 @@ oauth:
     clientSecret: "your-discord-client-secret"
 
 # =============================================================================
+# Discord Settings
+# =============================================================================
+discord:
+  # Discord server (guild) ID for membership verification
+  guildId: "your-discord-guild-id"
+  # Discord role ID that grants admin access (optional)
+  # Users with this role can view all nodes, map, and manage non-superuser users.
+  # adminRoleId: "1234567890123456789"
+
+# =============================================================================
 # Meshtastic Settings
 # =============================================================================
 meshSettings:

@@ -93,6 +93,7 @@ func AllNodesPage(data AllNodesPageData) templ.Component {
 			})
 			templ_7745c5c3_Err = Layout(LayoutProps{
 				IsSuperuser:    data.IsSuperuser,
+				IsAdmin:        data.IsAdmin,
 				ShowSetupGuide: false,
 			}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {

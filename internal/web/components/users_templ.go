@@ -17,6 +17,7 @@ type UserRowData struct {
 	UserName         string  `json:"username"`
 	DisplayName      *string `json:"display_name"`
 	IsSuperuser      bool    `json:"is_superuser"`
+	IsAdmin          bool    `json:"is_admin"`
 	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
 	Created          string  `json:"created"`
 }
@@ -75,7 +76,7 @@ func UsersPage(data UsersPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"users-page\"><div class=\"table-controls\"><h3>User Management</h3></div><table class=\"table--responsive\" id=\"users-table\"><thead><tr><th>ID</th><th>Username</th><th>Display Name</th><th>Created</th><th>Gateway Allowed</th><th>Actions</th></tr></thead> <tbody id=\"users-tbody\"><tr><td colspan=\"7\" class=\"loading-message\">Loading...</td></tr></tbody></table></div><!-- Edit User Modal --> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"users-page\"><div class=\"table-controls\"><h3>User Management</h3></div><table class=\"table--responsive\" id=\"users-table\"><thead><tr><th>ID</th><th>Username</th><th>Display Name</th><th>Role</th><th>Created</th><th>Gateway Allowed</th><th>Actions</th></tr></thead> <tbody id=\"users-tbody\"><tr><td colspan=\"7\" class=\"loading-message\">Loading...</td></tr></tbody></table></div><!-- Edit User Modal --> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -83,7 +84,7 @@ func UsersPage(data UsersPageData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <script>\n\t\t\t\tlet allUsers = [];\n\n\t\t\t\tfunction editUser(userId) {\n\t\t\t\t\tconst user = allUsers.find(u => u.id === userId);\n\t\t\t\t\tif (!user) return;\n\n\t\t\t\t\tdocument.getElementById('edit-user-id').value = user.id;\n\t\t\t\t\tdocument.getElementById('edit-username').value = user.username;\n\t\t\t\t\tdocument.getElementById('edit-display-name').value = user.display_name || '';\n\t\t\t\t\tdocument.getElementById('edit-gateway-allowed').checked = user.is_gateway_allowed;\n\n\t\t\t\t\tdocument.getElementById('edit-user-modal').classList.add('opened');\n\t\t\t\t}\n\n\t\t\t\tfunction closeEditModal() {\n\t\t\t\t\tdocument.getElementById('edit-user-modal').classList.remove('opened');\n\t\t\t\t}\n\n\t\t\t\tfunction saveUser() {\n\t\t\t\t\tconst userId = document.getElementById('edit-user-id').value;\n\t\t\t\t\tconst username = document.getElementById('edit-username').value.trim();\n\t\t\t\t\tconst displayName = document.getElementById('edit-display-name').value.trim();\n\t\t\t\t\tconst isGatewayAllowed = document.getElementById('edit-gateway-allowed').checked;\n\n\t\t\t\t\tif (!username) {\n\t\t\t\t\t\talert('Username is required');\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\n\t\t\t\t\tconst requestData = {\n\t\t\t\t\t\tusername: username,\n\t\t\t\t\t\tdisplay_name: displayName || null,\n\t\t\t\t\t\tis_gateway_allowed: isGatewayAllowed\n\t\t\t\t\t};\n\n\t\t\t\t\tfetch('/api/users/' + userId, {\n\t\t\t\t\t\tmethod: 'PUT',\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t'Content-Type': 'application/json'\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify(requestData)\n\t\t\t\t\t})\n\t\t\t\t\t.then(response => {\n\t\t\t\t\t\tif (!response.ok) {\n\t\t\t\t\t\t\tthrow new Error('Failed to update user');\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn response.json();\n\t\t\t\t\t})\n\t\t\t\t\t.then(data => {\n\t\t\t\t\t\tcloseEditModal();\n\t\t\t\t\t\trefreshUsersTable();\n\t\t\t\t\t\talert('User updated successfully');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\tconsole.error('Error updating user:', error);\n\t\t\t\t\t\talert('Failed to update user: ' + error.message);\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction confirmDeleteUser(userId, username) {\n\t\t\t\t\tif (confirm('Are you sure you want to delete user \"' + username + '\"? This action cannot be undone.')) {\n\t\t\t\t\t\tdeleteUser(userId);\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction deleteUser(userId) {\n\t\t\t\t\tfetch('/api/users/' + userId, {\n\t\t\t\t\t\tmethod: 'DELETE'\n\t\t\t\t\t})\n\t\t\t\t\t.then(response => {\n\t\t\t\t\t\tif (!response.ok) {\n\t\t\t\t\t\t\treturn response.text().then(text => {\n\t\t\t\t\t\t\t\tthrow new Error(text || 'Failed to delete user');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn response.json();\n\t\t\t\t\t})\n\t\t\t\t\t.then(data => {\n\t\t\t\t\t\trefreshUsersTable();\n\t\t\t\t\t\talert('User deleted successfully');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\tconsole.error('Error deleting user:', error);\n\t\t\t\t\t\talert('Failed to delete user: ' + error.message);\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction escapeHtml(text) {\n\t\t\t\t\tconst div = document.createElement('div');\n\t\t\t\t\tdiv.textContent = text;\n\t\t\t\t\treturn div.innerHTML;\n\t\t\t\t}\n\t\t\t</script> <style>\n\t\t\t\t#edit-user-modal {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t\tposition: fixed;\n\t\t\t\t\tz-index: 1000;\n\t\t\t\t\tleft: 0;\n\t\t\t\t\ttop: 0;\n\t\t\t\t\twidth: 100%;\n\t\t\t\t\theight: 100%;\n\t\t\t\t\tbackground-color: rgba(0,0,0,0.7);\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\n\t\t\t\t#edit-user-modal.opened {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-content {\n\t\t\t\t\tbackground-color: var(--mg-color-initial);\n\t\t\t\t\tpadding: 0;\n\t\t\t\t\tborder: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\tborder-radius: 1rem;\n\t\t\t\t\twidth: 80%;\n\t\t\t\t\tmax-width: 500px;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-header {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\tposition: relative;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-header h2 {\n\t\t\t\t\tmargin: 0;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-close {\n\t\t\t\t\tcolor: var(--mg-color-secondary);\n\t\t\t\t\tfloat: right;\n\t\t\t\t\tfont-size: 28px;\n\t\t\t\t\tfont-weight: bold;\n\t\t\t\t\tcursor: pointer;\n\t\t\t\t\tline-height: 1;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-close:hover {\n\t\t\t\t\tcolor: var(--mg-color-primary);\n\t\t\t\t}\n\n\t\t\t\t.user-modal-body {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-footer {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t\tborder-top: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\ttext-align: right;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-footer button {\n\t\t\t\t\tmargin-left: 0.5rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group {\n\t\t\t\t\tmargin-bottom: 1rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group label {\n\t\t\t\t\tdisplay: block;\n\t\t\t\t\tmargin-bottom: 0.5rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group label.toggle-label {\n\t\t\t\t\tdisplay: inline-flex;\n\t\t\t\t\tmargin-bottom: 0;\n\t\t\t\t}\n\n\t\t\t\t#users-table .error-message {\n\t\t\t\t\tcolor: #ff4444;\n\t\t\t\t\ttext-align: center;\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\n\t\t\t\t#users-table .loading-message {\n\t\t\t\t\ttext-align: center;\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\t\t\t</style>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <script>\n\t\t\t\tlet allUsers = [];\n\n\t\t\t\tfunction editUser(userId) {\n\t\t\t\t\tconst user = allUsers.find(u => u.id === userId);\n\t\t\t\t\tif (!user) return;\n\n\t\t\t\t\tdocument.getElementById('edit-user-id').value = user.id;\n\t\t\t\t\tdocument.getElementById('edit-username').value = user.username;\n\t\t\t\t\tdocument.getElementById('edit-display-name').value = user.display_name || '';\n\t\t\t\t\tdocument.getElementById('edit-gateway-allowed').checked = user.is_gateway_allowed;\n\n\t\t\t\t\tdocument.getElementById('edit-user-modal').classList.add('opened');\n\t\t\t\t}\n\n\t\t\t\tfunction closeEditModal() {\n\t\t\t\t\tdocument.getElementById('edit-user-modal').classList.remove('opened');\n\t\t\t\t}\n\n\t\t\t\tfunction saveUser() {\n\t\t\t\t\tconst userId = document.getElementById('edit-user-id').value;\n\t\t\t\t\tconst username = document.getElementById('edit-username').value.trim();\n\t\t\t\t\tconst displayName = document.getElementById('edit-display-name').value.trim();\n\t\t\t\t\tconst isGatewayAllowed = document.getElementById('edit-gateway-allowed').checked;\n\n\t\t\t\t\tif (!username) {\n\t\t\t\t\t\talert('Username is required');\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\n\t\t\t\t\tconst requestData = {\n\t\t\t\t\t\tusername: username,\n\t\t\t\t\t\tdisplay_name: displayName || null,\n\t\t\t\t\t\tis_gateway_allowed: isGatewayAllowed\n\t\t\t\t\t};\n\n\t\t\t\t\tfetch('/api/users/' + userId, {\n\t\t\t\t\t\tmethod: 'PUT',\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t'Content-Type': 'application/json'\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify(requestData)\n\t\t\t\t\t})\n\t\t\t\t\t.then(response => {\n\t\t\t\t\t\tif (!response.ok) {\n\t\t\t\t\t\t\tthrow new Error('Failed to update user');\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn response.json();\n\t\t\t\t\t})\n\t\t\t\t\t.then(data => {\n\t\t\t\t\t\tcloseEditModal();\n\t\t\t\t\t\trefreshUsersTable();\n\t\t\t\t\t\talert('User updated successfully');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\tconsole.error('Error updating user:', error);\n\t\t\t\t\t\talert('Failed to update user: ' + error.message);\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction confirmDeleteUser(userId, username) {\n\t\t\t\t\tif (confirm('Are you sure you want to delete user \"' + username + '\"? This action cannot be undone.')) {\n\t\t\t\t\t\tdeleteUser(userId);\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tfunction deleteUser(userId) {\n\t\t\t\t\tfetch('/api/users/' + userId, {\n\t\t\t\t\t\tmethod: 'DELETE'\n\t\t\t\t\t})\n\t\t\t\t\t.then(response => {\n\t\t\t\t\t\tif (!response.ok) {\n\t\t\t\t\t\t\treturn response.text().then(text => {\n\t\t\t\t\t\t\t\tthrow new Error(text || 'Failed to delete user');\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t\treturn response.json();\n\t\t\t\t\t})\n\t\t\t\t\t.then(data => {\n\t\t\t\t\t\trefreshUsersTable();\n\t\t\t\t\t\talert('User deleted successfully');\n\t\t\t\t\t})\n\t\t\t\t\t.catch(error => {\n\t\t\t\t\t\tconsole.error('Error deleting user:', error);\n\t\t\t\t\t\talert('Failed to delete user: ' + error.message);\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction escapeHtml(text) {\n\t\t\t\t\tconst div = document.createElement('div');\n\t\t\t\t\tdiv.textContent = text;\n\t\t\t\t\treturn div.innerHTML;\n\t\t\t\t}\n\t\t\t</script> <style>\n\t\t\t\t#edit-user-modal {\n\t\t\t\t\tdisplay: none;\n\t\t\t\t\tposition: fixed;\n\t\t\t\t\tz-index: 1000;\n\t\t\t\t\tleft: 0;\n\t\t\t\t\ttop: 0;\n\t\t\t\t\twidth: 100%;\n\t\t\t\t\theight: 100%;\n\t\t\t\t\tbackground-color: rgba(0,0,0,0.7);\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tjustify-content: center;\n\t\t\t\t}\n\n\t\t\t\t#edit-user-modal.opened {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-content {\n\t\t\t\t\tbackground-color: var(--mg-color-initial);\n\t\t\t\t\tpadding: 0;\n\t\t\t\t\tborder: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\tborder-radius: 1rem;\n\t\t\t\t\twidth: 80%;\n\t\t\t\t\tmax-width: 500px;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-header {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\tposition: relative;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-header h2 {\n\t\t\t\t\tmargin: 0;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-close {\n\t\t\t\t\tcolor: var(--mg-color-secondary);\n\t\t\t\t\tfloat: right;\n\t\t\t\t\tfont-size: 28px;\n\t\t\t\t\tfont-weight: bold;\n\t\t\t\t\tcursor: pointer;\n\t\t\t\t\tline-height: 1;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-close:hover {\n\t\t\t\t\tcolor: var(--mg-color-primary);\n\t\t\t\t}\n\n\t\t\t\t.user-modal-body {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-footer {\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t\tborder-top: 1px solid var(--mg-color-quaternary);\n\t\t\t\t\ttext-align: right;\n\t\t\t\t}\n\n\t\t\t\t.user-modal-footer button {\n\t\t\t\t\tmargin-left: 0.5rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group {\n\t\t\t\t\tmargin-bottom: 1rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group label {\n\t\t\t\t\tdisplay: block;\n\t\t\t\t\tmargin-bottom: 0.5rem;\n\t\t\t\t}\n\n\t\t\t\t.form-group label.toggle-label {\n\t\t\t\t\tdisplay: inline-flex;\n\t\t\t\t\tmargin-bottom: 0;\n\t\t\t\t}\n\n\t\t\t\t.badge {\n\t\t\t\t\tdisplay: inline-block;\n\t\t\t\t\tpadding: 0.2em 0.6em;\n\t\t\t\t\tfont-size: 0.8em;\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\tborder-radius: 0.375rem;\n\t\t\t\t}\n\n\t\t\t\t.badge-superuser {\n\t\t\t\t\tbackground-color: light-dark(#dc35451a, #dc354533);\n\t\t\t\t\tcolor: light-dark(#dc3545, #ff6b6b);\n\t\t\t\t}\n\n\t\t\t\t.badge-admin {\n\t\t\t\t\tbackground-color: light-dark(#0d6efd1a, #0d6efd33);\n\t\t\t\t\tcolor: light-dark(#0d6efd, #6ea8fe);\n\t\t\t\t}\n\n\t\t\t\t#users-table .error-message {\n\t\t\t\t\tcolor: #ff4444;\n\t\t\t\t\ttext-align: center;\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\n\t\t\t\t#users-table .loading-message {\n\t\t\t\t\ttext-align: center;\n\t\t\t\t\tpadding: 1rem;\n\t\t\t\t}\n\t\t\t</style>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -91,6 +92,7 @@ func UsersPage(data UsersPageData) templ.Component {
 			})
 			templ_7745c5c3_Err = Layout(LayoutProps{
 				IsSuperuser:    data.IsSuperuser,
+				IsAdmin:        data.IsAdmin,
 				ShowSetupGuide: false,
 			}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -136,7 +138,7 @@ func EditUserModal() templ.Component {
 }
 
 // UserRow renders a single user row in the table
-func UserRow(user UserRowData) templ.Component {
+func UserRow(user UserRowData, viewerIsSuperuser bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -164,7 +166,7 @@ func UserRow(user UserRowData) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(intToStr(user.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 283, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 304, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -177,7 +179,7 @@ func UserRow(user UserRowData) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(user.UserName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 284, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 305, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -191,7 +193,7 @@ func UserRow(user UserRowData) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(*user.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 287, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 308, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -203,64 +205,85 @@ func UserRow(user UserRowData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</td><td data-label=\"Created\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</td><td data-label=\"Role\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if user.IsSuperuser {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<span class=\"badge badge-superuser\">Superuser</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else if user.IsAdmin {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"badge badge-admin\">Admin</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td data-label=\"Created\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(user.Created)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 292, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/users.templ`, Line: 320, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td><td data-label=\"Gateway\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td><td data-label=\"Gateway\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if user.IsGatewayAllowed {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "&#x2713;")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "&#x2713;")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td data-label=\"Actions\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</td><td data-label=\"Actions\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.JSFuncCall("editUser", user.ID))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if viewerIsSuperuser || !user.IsSuperuser {
+			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.JSFuncCall("editUser", user.ID))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button class=\"btn btn-sm btn-primary\" onclick=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 templ.ComponentScript = templ.JSFuncCall("editUser", user.ID)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10.Call)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\">Edit</button> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<button class=\"btn btn-sm btn-danger\" onclick=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 templ.ComponentScript = templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11.Call)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">Delete</button>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<button class=\"btn btn-sm btn-primary\" onclick=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var10 templ.ComponentScript = templ.JSFuncCall("editUser", user.ID)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10.Call)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">Edit</button> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button class=\"btn btn-sm btn-danger\" onclick=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var11 templ.ComponentScript = templ.JSFuncCall("confirmDeleteUser", user.ID, user.UserName)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11.Call)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\">Delete</button></td></tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</td></tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -269,7 +292,7 @@ func UserRow(user UserRowData) templ.Component {
 }
 
 // UsersTableContent renders the users table body content
-func UsersTableContent(users []UserRowData) templ.Component {
+func UsersTableContent(users []UserRowData, viewerIsSuperuser bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -291,19 +314,19 @@ func UsersTableContent(users []UserRowData) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(users) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<tr><td colspan=\"7\">No users found</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<tr><td colspan=\"7\">No users found</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
 			for _, user := range users {
-				templ_7745c5c3_Err = UserRow(user).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = UserRow(user, viewerIsSuperuser).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<!-- Store users data for edit modal -->")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<!-- Store users data for edit modal -->")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

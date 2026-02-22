@@ -4,6 +4,7 @@ templ AllNodesPage(data AllNodesPageData) {
 	@Base("All Nodes - WPAmesh") {
 		@Layout(LayoutProps{
 			IsSuperuser:    data.IsSuperuser,
+			IsAdmin:        data.IsAdmin,
 			ShowSetupGuide: false,
 		}) {
 

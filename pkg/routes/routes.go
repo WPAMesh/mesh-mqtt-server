@@ -214,6 +214,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 		MqttConfig:     mqttConfig,
 		ShowOnboarding: showOnboarding,
 		IsSuperuser:    user.IsSuperuser,
+		IsAdmin:        user.IsAdminOrAbove(),
 	}
 
 	if err := components.MyNodesPage(pageData).Render(r.Context(), w); err != nil {
@@ -229,19 +230,26 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 
 	nodes, bridgeClients, otherClients := wr.getNodesData(user, true, true, false)
 
+	// Only superusers can see forwarding status
+	var forwardingStatus *components.ForwardingStatusData
+	if user.IsSuperuser {
+		forwardingStatus = wr.getForwardingStatusData()
+	}
+
 	pageData := components.AllNodesPageData{
 		Nodes:            nodes,
 		BridgeClients:    bridgeClients,
 		OtherClients:     otherClients,
-		IsSuperuser:      true,
-		ForwardingStatus: wr.getForwardingStatusData(),
+		IsSuperuser:      user.IsSuperuser,
+		IsAdmin:          user.IsAdminOrAbove(),
+		ForwardingStatus: forwardingStatus,
 	}
 
 	if err := components.AllNodesPage(pageData).Render(r.Context(), w); err != nil {
@@ -395,7 +403,7 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 	allUsers := query.Get("all_users") == "true"
 
 	// Authorization check for all_users flag
-	if allUsers && !user.IsSuperuser {
+	if allUsers && !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -560,13 +568,14 @@ func (wr *WebRouter) usersPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 
 	pageData := components.UsersPageData{
-		IsSuperuser: true,
+		IsSuperuser: user.IsSuperuser,
+		IsAdmin:     user.IsAdminOrAbove(),
 	}
 
 	if err := components.UsersPage(pageData).Render(r.Context(), w); err != nil {
@@ -581,6 +590,7 @@ type UserResponse struct {
 	DiscordID        *int64  `json:"discord_id"`
 	UserName         string  `json:"username"`
 	IsSuperuser      bool    `json:"is_superuser"`
+	IsAdmin          bool    `json:"is_admin"`
 	IsGatewayAllowed bool    `json:"is_gateway_allowed"`
 	Created          string  `json:"created"`
 }
@@ -596,7 +606,7 @@ func (wr *WebRouter) getUsers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -616,6 +626,7 @@ func (wr *WebRouter) getUsers(w http.ResponseWriter, r *http.Request) {
 			DiscordID:        u.DiscordID,
 			UserName:         u.UserName,
 			IsSuperuser:      u.IsSuperuser,
+			IsAdmin:          u.IsAdmin,
 			IsGatewayAllowed: u.IsGatewayAllowed,
 			Created:          u.Created.Format("2006-01-02 15:04:05"),
 		}
@@ -638,7 +649,7 @@ func (wr *WebRouter) updateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -670,6 +681,12 @@ func (wr *WebRouter) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Admins cannot edit superusers
+	if !user.IsSuperuser && existingUser.IsSuperuser {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Update fields (IsSuperuser intentionally not editable via API)
 	existingUser.DisplayName = req.DisplayName
 	existingUser.UserName = req.UserName
@@ -696,7 +713,7 @@ func (wr *WebRouter) deleteUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -719,6 +736,19 @@ func (wr *WebRouter) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if id == user.ID {
 		http.Error(w, "Cannot delete your own account", http.StatusBadRequest)
 		return
+	}
+
+	// Admins cannot delete superusers
+	if !user.IsSuperuser {
+		targetUser, err := wr.storage.Users.GetByID(id)
+		if err != nil || targetUser == nil {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		if targetUser.IsSuperuser {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	err = wr.storage.Users.DeleteUser(id)
@@ -826,7 +856,7 @@ func (wr *WebRouter) getGatewayStats(w http.ResponseWriter, r *http.Request) {
 	allUsers := query.Get("all_users") == "true"
 
 	// Authorization check for all_users flag
-	if allUsers && !user.IsSuperuser {
+	if allUsers && !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -920,7 +950,7 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -1004,13 +1034,14 @@ func (wr *WebRouter) mapPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	if !user.IsSuperuser {
+	if !user.IsAdminOrAbove() {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 
 	pageData := components.MapPageData{
-		IsSuperuser: true,
+		IsSuperuser: user.IsSuperuser,
+		IsAdmin:     user.IsAdminOrAbove(),
 	}
 
 	if err := components.MapPage(pageData).Render(r.Context(), w); err != nil {

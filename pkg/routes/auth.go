@@ -123,7 +123,7 @@ func (wr *WebRouter) getUserDataFromDiscord(code string, r *http.Request) (*mode
 		return nil, err
 	}
 
-	isValid, err := wr.validateDiscordUser(&gUser, token)
+	isValid, isAdmin, err := wr.validateDiscordUser(&gUser, token)
 	if err != nil {
 		return nil, fmt.Errorf("failed validating discord membership: %s", err.Error())
 	}
@@ -132,12 +132,30 @@ func (wr *WebRouter) getUserDataFromDiscord(code string, r *http.Request) (*mode
 		return nil, errors.New("discord user is not a member of this guild")
 	}
 
-	return wr.saveToken(gUser, token)
+	return wr.saveToken(gUser, token, isAdmin)
 }
 
-func (wr *WebRouter) validateDiscordUser(gUser *models.DiscordUser, token *oauth2.Token) (bool, error) {
+func (wr *WebRouter) validateDiscordUser(gUser *models.DiscordUser, token *oauth2.Token) (isValid bool, isAdmin bool, err error) {
+	dm, err := wr.getDiscordGuildMember(token)
+	if err != nil {
+		return false, false, err
+	}
+	if dm.Pending != nil && *dm.Pending {
+		return false, false, nil
+	}
 
-	return wr.getDiscordGuildStatus(token)
+	// Check if user has the admin role
+	adminRoleID := wr.config.Discord.AdminRoleID
+	if adminRoleID != "" {
+		for _, role := range dm.Roles {
+			if role == adminRoleID {
+				isAdmin = true
+				break
+			}
+		}
+	}
+
+	return true, isAdmin, nil
 }
 
 func (wr *WebRouter) getAuthEndpoint(url string, token *oauth2.Token) ([]byte, error) {
@@ -164,26 +182,24 @@ func (wr *WebRouter) getAuthEndpoint(url string, token *oauth2.Token) ([]byte, e
 	return body, err
 }
 
-func (wr *WebRouter) getDiscordGuildStatus(token *oauth2.Token) (bool, error) {
-
-	guildID := "1330739329538195588" //wpamesh
+func (wr *WebRouter) getDiscordGuildMember(token *oauth2.Token) (*models.DiscordGuildMember, error) {
+	guildID := wr.config.Discord.GuildID
 	guildMemberEndpoint := fmt.Sprintf("%s/users/@me/guilds/%s/member", discordAPIBase, guildID)
 
-	// Create a new request using http
 	body, err := wr.getAuthEndpoint(guildMemberEndpoint, token)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	dm := models.DiscordGuildMember{}
 
 	err = json.Unmarshal(body, &dm)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if dm.User == nil {
-		return false, fmt.Errorf("user is not a member of guild %s", guildID)
+		return nil, fmt.Errorf("user is not a member of guild %s", guildID)
 	}
-	return !*dm.Pending, nil
+	return &dm, nil
 }
 
 func createMqttUsername(discordUser string) string {
@@ -202,7 +218,7 @@ func createMqttUsername(discordUser string) string {
 	return string(s[:j])
 }
 
-func (wr *WebRouter) saveToken(gUser models.DiscordUser, token *oauth2.Token) (*models.User, error) {
+func (wr *WebRouter) saveToken(gUser models.DiscordUser, token *oauth2.Token, isAdmin bool) (*models.User, error) {
 	discordID, err := strconv.ParseInt(gUser.ID, 10, 64)
 	if err != nil {
 		return nil, err
@@ -254,5 +270,11 @@ func (wr *WebRouter) saveToken(gUser models.DiscordUser, token *oauth2.Token) (*
 	if err != nil {
 		return nil, err
 	}
+
+	// Update admin status based on Discord role
+	if err := wr.storage.Users.SetAdminStatus(dbToken.UserID, isAdmin); err != nil {
+		slog.Error("error updating admin status", "error", err, "user_id", dbToken.UserID)
+	}
+
 	return wr.storage.Users.GetByID(dbToken.UserID)
 }

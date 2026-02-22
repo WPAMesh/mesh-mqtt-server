@@ -78,6 +78,7 @@ type MyNodesPageData struct {
 	MqttConfig     *MqttConfigData
 	ShowOnboarding bool
 	IsSuperuser    bool
+	IsAdmin        bool
 }
 
 // AllNodesPageData holds all data for the all nodes page
@@ -86,17 +87,20 @@ type AllNodesPageData struct {
 	BridgeClients    []BridgeClientData
 	OtherClients     []OtherClientData
 	IsSuperuser      bool
+	IsAdmin          bool
 	ForwardingStatus *ForwardingStatusData
 }
 
 // UsersPageData holds data for the users page
 type UsersPageData struct {
 	IsSuperuser bool
+	IsAdmin     bool
 }
 
 // MapPageData holds data for the map page
 type MapPageData struct {
 	IsSuperuser bool
+	IsAdmin     bool
 }
 
 // ForwardingTargetData holds forwarding target status for display

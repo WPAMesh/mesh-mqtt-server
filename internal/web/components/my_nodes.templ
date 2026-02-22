@@ -17,6 +17,7 @@ templ MyNodesPage(data MyNodesPageData) {
 	@Base("My Nodes - WPAmesh") {
 		@Layout(LayoutProps{
 			IsSuperuser:    data.IsSuperuser,
+			IsAdmin:        data.IsAdmin,
 			ShowSetupGuide: data.MqttConfig != nil,
 		}) {
 			<!-- Onboarding Modal -->

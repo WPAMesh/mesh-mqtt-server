@@ -13,6 +13,8 @@ type MeshCoreNodeInfo struct {
 	Name      string     `db:"name"`
 	Latitude  *float64   `db:"latitude"`
 	Longitude *float64   `db:"longitude"`
+	IsDirect  bool       `db:"is_direct"`
+	UserID    *int       `db:"user_id"`
 	LastSeen  *time.Time `db:"last_seen"`
 }
 

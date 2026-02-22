@@ -36,7 +36,7 @@ func check(e error) {
 }
 
 func init() {
-	logLevel := slog.LevelInfo
+	logLevel := slog.LevelDebug
 	if os.Getenv("DEBUG") != "" {
 		logLevel = slog.LevelDebug
 	}
@@ -118,28 +118,35 @@ func main() {
 	clientNotifier := routes.NewClientNotifier()
 	router.ClientNotifier = clientNotifier
 
-	// Add custom hook (MeshtasticHook) to the server
-	meshHook := new(hooks.MeshtasticHook)
-
-	meshCoreTopicPrefix := config.MeshCore.TopicPrefix
-	if meshCoreTopicPrefix == "" {
-		meshCoreTopicPrefix = "meshcore"
-	}
-
-	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
-		Server:              server,
-		Storage:             storage,
-		MeshSettings:        config.MeshSettings,
-		ClientNotifier:      clientNotifier,
-		MeshCoreTopicPrefix: meshCoreTopicPrefix,
+	// Add auth hook first — handles authentication, ACL, and client lifecycle
+	authHook := new(hooks.AuthHook)
+	err = server.AddHook(authHook, &hooks.AuthHookOptions{
+		Server:         server,
+		Storage:        storage,
+		ClientNotifier: clientNotifier,
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Set the MQTT server on the router
-	router.MqttServer = meshHook
+	router.MqttServer = authHook
+
+	// Add Meshtastic protocol hook
+	meshHook := new(hooks.MeshtasticHook)
+	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
+		Server:       server,
+		Storage:      storage,
+		MeshSettings: config.MeshSettings,
+		AuthHook:     authHook,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Register Meshtastic hook as enricher, ACL checker, and lifecycle listener
+	authHook.RegisterClientEnricher(meshHook)
+	authHook.RegisterACLChecker(meshHook)
+	authHook.RegisterLifecycleListener(meshHook)
 
 	// Add forwarding hook if enabled
 	var forwardingHook *hooks.ForwardingHook
@@ -162,10 +169,13 @@ func main() {
 			Server:   server,
 			Storage:  storage,
 			Settings: config.MeshCore,
+			AuthHook: authHook,
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
+		authHook.RegisterClientEnricher(meshCoreHook)
+		authHook.RegisterACLChecker(meshCoreHook)
 	}
 
 	// Add Bridge hook if enabled
@@ -183,7 +193,7 @@ func main() {
 		}
 	}
 
-	// Wire up cross-hook references after both hooks are initialized
+	// Wire up cross-hook references
 	if meshCoreHook != nil && bridgeHook != nil {
 		meshCoreHook.SetBridgeHook(bridgeHook)
 	}
@@ -207,6 +217,7 @@ func main() {
 	server.Log.Warn("caught signal, stopping...")
 
 	// Stop hooks gracefully
+	_ = authHook.Stop()
 	_ = meshHook.Stop()
 	if forwardingHook != nil {
 		_ = forwardingHook.Stop()

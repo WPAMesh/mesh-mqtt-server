@@ -3,6 +3,8 @@ package hooks
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,11 +18,14 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
 
+var bridgeClientRegex = regexp.MustCompile(`^meshcore-bridge-.+$`)
+
 // MeshCoreHookOptions contains configuration for the MeshCore hook.
 type MeshCoreHookOptions struct {
 	Server   *mqtt.Server
 	Storage  *store.Stores
 	Settings config.MeshCoreSettings
+	AuthHook *AuthHook
 }
 
 // MeshCoreHook handles MeshCore protocol packets received via MQTT.
@@ -33,6 +38,29 @@ type MeshCoreHook struct {
 // SetBridgeHook sets the bridge hook reference for broadcasting virtual node updates.
 func (h *MeshCoreHook) SetBridgeHook(bh *BridgeHook) {
 	h.bridgeHook = bh
+}
+
+// EnrichClient classifies MeshCore bridge clients during authentication.
+func (h *MeshCoreHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client, user *models.User) bool {
+	if bridgeClientRegex.MatchString(cl.ID) {
+		cd.IsBridgeClient = true
+		return true
+	}
+	return false
+}
+
+// CheckACL handles ACL decisions for MeshCore bridge clients.
+func (h *MeshCoreHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
+	if !cd.IsBridgeClient {
+		return false, false
+	}
+	mcPrefix := h.config.Settings.TopicPrefix + "/"
+	if strings.HasPrefix(topic, mcPrefix) {
+		return true, true
+	}
+	h.Log.Debug("bridge client denied access to non-meshcore topic",
+		"client", cd.ClientID, "topic", topic)
+	return true, false
 }
 
 // ID returns the unique identifier for this hook.
@@ -118,10 +146,18 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 		"path_len", packet.PathLen,
 		"payload_len", len(packet.Payload))
 
+	// Resolve the MQTT user ID from the publishing client
+	var userID *int
+	if username := string(cl.Properties.Username); username != "" {
+		if u, err := h.config.Storage.Users.GetByUserName(username); err == nil && u != nil {
+			userID = &u.ID
+		}
+	}
+
 	// Process specific payload types
 	switch packet.PayloadType() {
 	case codec.PayloadTypeAdvert:
-		h.processAdvert(&packet, meshID)
+		h.processAdvert(&packet, meshID, cl.ID, userID)
 	}
 
 	// Pass through unmodified
@@ -129,7 +165,7 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 }
 
 // processAdvert handles ADVERT payloads by extracting node info and saving to database.
-func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string) {
+func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string, clientID string, userID *int) {
 	advert, err := codec.ParseAdvertPayload(packet.Payload)
 	if err != nil {
 		h.Log.Warn("failed to parse ADVERT payload",
@@ -138,16 +174,28 @@ func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string) {
 		return
 	}
 
+	isDirect := packet.PathLen == 0
+
 	// Build log fields
 	logFields := []any{
 		"mesh_id", meshID,
 		"pub_key", advert.PubKey[:8], // First 8 bytes for brevity
 		"timestamp", advert.Timestamp,
+		"is_direct", isDirect,
+	}
+
+	// Only associate user ID with direct-connect nodes, since non-direct
+	// nodes may be heard by multiple bridges with different users.
+	var nodeUserID *int
+	if isDirect {
+		nodeUserID = userID
 	}
 
 	// Extract node info from appdata if present
 	nodeInfo := &models.MeshCoreNodeInfo{
-		PubKey: advert.PubKey[:],
+		PubKey:   advert.PubKey[:],
+		IsDirect: isDirect,
+		UserID:   nodeUserID,
 	}
 	now := time.Now()
 	nodeInfo.LastSeen = &now
@@ -177,6 +225,13 @@ func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string) {
 			"pub_key", advert.PubKey[:8],
 			"error", err)
 		return
+	}
+
+	// Register direct-connect node on its bridge client for connection tracking
+	if isDirect && h.config.AuthHook != nil {
+		if bridgeClient := h.config.AuthHook.GetClient(clientID); bridgeClient != nil {
+			bridgeClient.AddDirectMCNode(hex.EncodeToString(advert.PubKey[:]))
+		}
 	}
 
 	// Update virtual node display name if one exists for this pubkey

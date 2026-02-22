@@ -23,6 +23,7 @@ const (
 type MeshMqttServer interface {
 	GetAllClients() []*ClientDetails
 	GetUserClients(userID string) []*ClientDetails
+	GetClient(clientID string) *ClientDetails
 }
 
 // PortNumStats tracks packet counts for a specific port number
@@ -82,6 +83,7 @@ type ClientDetails struct {
 	HasPublished       bool          // True if this non-mesh client has published to mesh topics
 	HasMissingOkToMqtt bool          // True if we detected packets from this gateway without OkToMQTT bit
 	OkToMqttStats      OkToMqttStats // Stats tracking for OK to MQTT flag on gateway packets
+	DirectMCNodes      map[string]bool // Direct-connect MeshCore node pubkey hexes tracked by this bridge client
 }
 
 type NodeInfo struct {
@@ -105,6 +107,16 @@ func (n *NodeInfo) HasLocation() bool {
 
 func (c *ClientDetails) IsMeshDevice() bool {
 	return c.NodeDetails != nil || c.ProxyType != ""
+}
+
+// AddDirectMCNode registers a direct-connect MeshCore node pubkey on this client.
+func (c *ClientDetails) AddDirectMCNode(pubKeyHex string) {
+	c.Lock()
+	defer c.Unlock()
+	if c.DirectMCNodes == nil {
+		c.DirectMCNodes = make(map[string]bool)
+	}
+	c.DirectMCNodes[pubKeyHex] = true
 }
 
 func (c *ClientDetails) GetDisplayName() string {

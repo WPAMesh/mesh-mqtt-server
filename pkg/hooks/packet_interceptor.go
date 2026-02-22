@@ -169,7 +169,7 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 		// Clear pending verification state
 		client.SetVerificationPending(0, "")
 		// Notify subscribers about the verification status change
-		go h.notifyClientChange()
+		go h.config.AuthHook.NotifyClientChange()
 	}
 }
 
@@ -245,7 +245,7 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 				// Clear pending verification state
 				c.SetVerificationPending(0, "")
 				// Notify subscribers about the verification status change
-				go h.notifyClientChange()
+				go h.config.AuthHook.NotifyClientChange()
 			}
 		}
 	}
@@ -256,7 +256,7 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 			return
 		}
 		// Notify subscribers about node info change
-		go h.notifyClientChange()
+		go h.config.AuthHook.NotifyClientChange()
 	}
 }
 

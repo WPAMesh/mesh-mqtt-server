@@ -5,7 +5,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 )
 
-func (h *MeshtasticHook) validateUser(user, pass string) *models.User {
+func (h *AuthHook) validateUser(user, pass string) *models.User {
 	u, err := h.config.Storage.Users.GetByUserName(user)
 	if err != nil {
 		h.Log.Error("unable to query mqtt user", "hook", h.ID(), "user", user, "error", err)

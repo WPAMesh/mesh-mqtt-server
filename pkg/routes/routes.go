@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -258,6 +259,17 @@ func (wr *WebRouter) getUserDisplay(mqttUsername string) string {
 		return *user.DisplayName
 	}
 	return mqttUsername
+}
+
+func (wr *WebRouter) getUserDisplayByID(userID int) string {
+	user, err := wr.storage.Users.GetByID(userID)
+	if err != nil || user == nil {
+		return ""
+	}
+	if user.DisplayName != nil && *user.DisplayName != "" {
+		return *user.DisplayName
+	}
+	return user.UserName
 }
 
 func (wr *WebRouter) getMqttConfig(r *http.Request, user *models.User) *MqttConfigData {
@@ -939,25 +951,46 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// MeshCore nodes with location
+	// Build set of connected MeshCore pubkeys from active bridge clients
+	connectedMCKeys := make(map[string]bool)
+	for _, c := range wr.MqttServer.GetAllClients() {
+		if c.IsBridgeClient {
+			c.RLock()
+			for k := range c.DirectMCNodes {
+				connectedMCKeys[k] = true
+			}
+			c.RUnlock()
+		}
+	}
+
+	// MeshCore direct-connect (gateway) nodes with location
 	mcNodes, err := wr.storage.MeshCoreNodes.GetAllNodes()
 	if err == nil {
 		for _, mc := range mcNodes {
-			if !mc.HasLocation() {
+			if !mc.IsDirect || !mc.HasLocation() {
 				continue
 			}
 			fullHex := strings.ToUpper(mc.GetMeshCoreID().String())
 			nodeID := fullHex[:8] + "..." + fullHex[len(fullHex)-8:]
-			lat, lon := truncatePosition(*mc.Latitude, *mc.Longitude, 14)
+			lat, lon := *mc.Latitude, *mc.Longitude
+			lat, lon = truncatePosition(lat, lon, 14)
+			pubKeyHex := hex.EncodeToString(mc.PubKey)
+			var userDisplay string
+			if mc.UserID != nil {
+				userDisplay = wr.getUserDisplayByID(*mc.UserID)
+			}
 			mapNodes = append(mapNodes, MapNodeData{
-				NodeID:    nodeID,
-				ShortName: mc.Name,
-				LongName:  mc.Name,
-				NodeColor: "#6c757d",
-				Latitude:  lat,
-				Longitude: lon,
-				NodeRole:  mccodec.NodeTypeName(uint8(mc.NodeType)),
-				Source:    "meshcore",
+				NodeID:         nodeID,
+				ShortName:      mc.Name,
+				LongName:       mc.Name,
+				NodeColor:      "#6c757d",
+				Latitude:       lat,
+				Longitude:      lon,
+				IsValidGateway: true,
+				IsConnected:    connectedMCKeys[pubKeyHex],
+				NodeRole:       mccodec.NodeTypeName(uint8(mc.NodeType)),
+				Source:         "meshcore",
+				UserDisplay:    userDisplay,
 			})
 		}
 	}

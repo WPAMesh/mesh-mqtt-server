@@ -42,14 +42,16 @@ func (s *postgresMeshCoreNodeStore) GetNode(pubKey []byte) (*models.MeshCoreNode
 // SaveNode inserts or updates a MeshCore node in the database.
 func (s *postgresMeshCoreNodeStore) SaveNode(node *models.MeshCoreNodeInfo) error {
 	stmt := `
-	INSERT INTO meshcore_nodes (pub_key, node_type, name, latitude, longitude, last_seen)
-	VALUES (:pub_key, :node_type, :name, :latitude, :longitude, :last_seen)
+	INSERT INTO meshcore_nodes (pub_key, node_type, name, latitude, longitude, is_direct, user_id, last_seen)
+	VALUES (:pub_key, :node_type, :name, :latitude, :longitude, :is_direct, :user_id, :last_seen)
 	ON CONFLICT (pub_key)
 	DO UPDATE SET
 		node_type = :node_type,
 		name = :name,
 		latitude = :latitude,
 		longitude = :longitude,
+		is_direct = :is_direct,
+		user_id = :user_id,
 		last_seen = :last_seen
 	;`
 

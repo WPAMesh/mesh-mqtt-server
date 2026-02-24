@@ -341,7 +341,15 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 
 	//clientNode, _ := meshtastic.ParseNodeID(c.NodeID)
 	if c.NodeDetails.NodeID.String() != user.Id {
-		// Relayed from the mesh, we don't care about it
+		// Relayed from the mesh — save identity to the mesh-wide node DB
+		nid, err := meshtastic.ParseNodeID(user.Id)
+		if err == nil {
+			go func() {
+				if err := h.config.Storage.NodeDB.SaveNodeIdentity(uint32(nid), user.LongName, user.ShortName, user.Role.String(), user.HwModel.String()); err != nil {
+					h.Log.Error("error saving overheard node identity", "node_id", nid, "error", err)
+				}
+			}()
+		}
 		return
 	}
 	c.SyncUserID()
@@ -510,6 +518,27 @@ func (h *MeshtasticHook) processPosition(c *models.ClientDetails, env *pb.Servic
 
 	sendingNode := meshtastic.NodeID(pkt.From)
 	if env.GatewayId != sendingNode.String() {
+		// Relayed position — save to mesh-wide node DB if valid
+		if pos.LatitudeI != nil && pos.LongitudeI != nil {
+			lat := float64(*pos.LatitudeI) * 1e-7
+			lon := float64(*pos.LongitudeI) * 1e-7
+			go func() {
+				node, err := h.config.Storage.NodeDB.GetNode(uint32(sendingNode))
+				if err != nil {
+					h.Log.Error("error loading overheard node", "node_id", sendingNode, "error", err)
+					return
+				}
+				if node == nil {
+					node = &models.NodeInfo{NodeID: sendingNode}
+				}
+				node.Latitude = &lat
+				node.Longitude = &lon
+				node.LastSeen = util.Ptr(time.Now())
+				if err := h.config.Storage.NodeDB.SaveInfo(node); err != nil {
+					h.Log.Error("error saving overheard node position", "node_id", sendingNode, "error", err)
+				}
+			}()
+		}
 		return
 	}
 

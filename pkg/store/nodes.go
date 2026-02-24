@@ -77,9 +77,15 @@ func (b *postgresNodeInfoStore) GetByUserIDExceptNodeIDs(userId int, nodeIDs []u
 
 func (b *postgresNodeInfoStore) GetAllExceptNodeIDs(nodeIDs []uint32) ([]*models.NodeInfo, error) {
 	if len(nodeIDs) == 0 {
-		return b.GetAllNodes()
+		stmt := selectNodes + " WHERE n.user_id IS NOT NULL;"
+		obj := []*models.NodeInfo{}
+		err := b.db.Select(&obj, stmt)
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return obj, err
 	}
-	stmt := selectNodes + " WHERE n.node_id NOT IN(?);"
+	stmt := selectNodes + " WHERE n.user_id IS NOT NULL AND n.node_id NOT IN(?);"
 	obj := []*models.NodeInfo{}
 	query, args, err := sqlx.In(stmt, nodeIDs)
 	query = b.db.Rebind(query)

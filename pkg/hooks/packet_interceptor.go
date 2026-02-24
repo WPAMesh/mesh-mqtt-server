@@ -101,6 +101,7 @@ func (h *MeshtasticHook) processMeshPacket(client *models.ClientDetails, env *pb
 		err := proto.Unmarshal(data.Payload, &r)
 		if err == nil {
 			h.processTraceroute(env, data, &r)
+			h.sendTraceRouteToMeshSense(client, env, &r)
 			payload, err := proto.Marshal(&r)
 			if err == nil {
 				data.Payload = payload
@@ -111,13 +112,23 @@ func (h *MeshtasticHook) processMeshPacket(client *models.ClientDetails, env *pb
 		err := proto.Unmarshal(data.Payload, &u)
 		if err == nil {
 			go h.processNodeInfo(client, env, data, &u)
+			h.sendNodeInfoToMeshSense(client, env, &u)
 		}
 	case pb.PortNum_POSITION_APP:
 		var pos = pb.Position{}
 		err := proto.Unmarshal(data.Payload, &pos)
 		if err == nil {
 			go h.processPosition(client, env, &pos)
+			h.sendPositionToMeshSense(client, env, &pos)
 		}
+	case pb.PortNum_TELEMETRY_APP:
+		var tel = pb.Telemetry{}
+		err := proto.Unmarshal(data.Payload, &tel)
+		if err == nil {
+			h.sendTelemetryToMeshSense(client, env, &tel)
+		}
+	case pb.PortNum_TEXT_MESSAGE_APP:
+		h.sendTextMessageToMeshSense(client, env)
 	case pb.PortNum_MAP_REPORT_APP:
 		var report = pb.MapReport{}
 		err := proto.Unmarshal(data.Payload, &report)
@@ -126,6 +137,138 @@ func (h *MeshtasticHook) processMeshPacket(client *models.ClientDetails, env *pb
 		}
 	}
 
+}
+
+// sendToMeshSense sends a node update to the MeshSense server if configured.
+// The client parameter is used to resolve the node's short name when available.
+func (h *MeshtasticHook) sendToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope, updates map[string]any) {
+	if h.config.MeshSense == nil {
+		return
+	}
+	pkt := env.GetPacket()
+	if pkt == nil {
+		return
+	}
+	updates["num"] = pkt.From
+	hops := h.getHopsAway(pkt)
+	if hops >= 0 {
+		updates["hopsAway"] = hops
+	}
+	// Ensure name is always present — MeshSense requires it
+	if _, ok := updates["name"]; !ok {
+		nodeID := meshtastic.NodeID(pkt.From)
+		name := nodeID.DefaultShortName()
+		if client != nil && client.NodeDetails != nil && client.NodeDetails.NodeID == nodeID {
+			if sn := client.NodeDetails.ShortName; sn != "" {
+				name = sn
+			}
+		}
+		updates["name"] = name
+	}
+	go h.config.MeshSense.SendUpdate(pkt.From, updates)
+}
+
+func (h *MeshtasticHook) sendNodeInfoToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope, user *pb.User) {
+	h.sendToMeshSense(client, env, map[string]any{
+		"name": user.ShortName,
+		"user": map[string]any{
+			"id":        user.Id,
+			"longName":  user.LongName,
+			"shortName": user.ShortName,
+			"hwModel":   user.HwModel.String(),
+			"role":      user.Role.String(),
+		},
+	})
+}
+
+func (h *MeshtasticHook) sendPositionToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope, pos *pb.Position) {
+	posData := map[string]any{}
+	if pos.LatitudeI != nil {
+		posData["latitudeI"] = *pos.LatitudeI
+	}
+	if pos.LongitudeI != nil {
+		posData["longitudeI"] = *pos.LongitudeI
+	}
+	if pos.Altitude != nil {
+		posData["altitude"] = *pos.Altitude
+	}
+	if pos.Time != 0 {
+		posData["time"] = pos.Time
+	}
+	if len(posData) == 0 {
+		return
+	}
+	h.sendToMeshSense(client, env, map[string]any{
+		"position": posData,
+	})
+}
+
+func (h *MeshtasticHook) sendTelemetryToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope, tel *pb.Telemetry) {
+	updates := map[string]any{}
+	switch v := tel.GetVariant().(type) {
+	case *pb.Telemetry_DeviceMetrics:
+		dm := v.DeviceMetrics
+		metrics := map[string]any{}
+		if dm.BatteryLevel != nil {
+			metrics["batteryLevel"] = *dm.BatteryLevel
+		}
+		if dm.Voltage != nil {
+			metrics["voltage"] = *dm.Voltage
+		}
+		if dm.ChannelUtilization != nil {
+			metrics["channelUtilization"] = *dm.ChannelUtilization
+		}
+		if dm.AirUtilTx != nil {
+			metrics["airUtilTx"] = *dm.AirUtilTx
+		}
+		if dm.UptimeSeconds != nil {
+			metrics["uptimeSeconds"] = *dm.UptimeSeconds
+		}
+		updates["deviceMetrics"] = metrics
+	case *pb.Telemetry_EnvironmentMetrics:
+		em := v.EnvironmentMetrics
+		metrics := map[string]any{}
+		if em.Temperature != nil {
+			metrics["temperature"] = *em.Temperature
+		}
+		if em.RelativeHumidity != nil {
+			metrics["relativeHumidity"] = *em.RelativeHumidity
+		}
+		if em.BarometricPressure != nil {
+			metrics["barometricPressure"] = *em.BarometricPressure
+		}
+		if em.GasResistance != nil {
+			metrics["gasResistance"] = *em.GasResistance
+		}
+		if em.Iaq != nil {
+			metrics["iaq"] = *em.Iaq
+		}
+		updates["environmentMetrics"] = metrics
+	default:
+		return
+	}
+	h.sendToMeshSense(client, env, updates)
+}
+
+func (h *MeshtasticHook) sendTraceRouteToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope, disco *pb.RouteDiscovery) {
+	h.sendToMeshSense(client, env, map[string]any{
+		"trace": map[string]any{
+			"route":      disco.Route,
+			"snrTowards": disco.SnrTowards,
+			"routeBack":  disco.RouteBack,
+			"snrBack":    disco.SnrBack,
+		},
+	})
+}
+
+func (h *MeshtasticHook) sendTextMessageToMeshSense(client *models.ClientDetails, env *pb.ServiceEnvelope) {
+	pkt := env.GetPacket()
+	if pkt == nil {
+		return
+	}
+	h.sendToMeshSense(client, env, map[string]any{
+		"lastHeard": pkt.RxTime,
+	})
 }
 
 func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, env *pb.ServiceEnvelope, data *pb.Data) {
@@ -146,11 +289,11 @@ func (h *MeshtasticHook) checkPacketVerification(client *models.ClientDetails, e
 	if client.IsPendingVerification() && data.RequestId == client.VerifyPacketID {
 
 		if client.NodeDetails == nil {
-			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(sendingNode), client.UserID)
+			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(sendingNode))
 			if err != nil {
 				h.Log.Error("error loading node info", "node_id", sendingNode, "user_id", client.UserID, "error", err)
 			} else if nodeDetails == nil {
-				nodeDetails = &models.NodeInfo{NodeID: sendingNode, UserID: client.UserID}
+				nodeDetails = &models.NodeInfo{NodeID: sendingNode, UserID: &client.UserID}
 			}
 			client.NodeDetails = nodeDetails
 		}
@@ -187,11 +330,11 @@ func (h *MeshtasticHook) processNodeInfo(c *models.ClientDetails, env *pb.Servic
 		if err != nil {
 			return
 		}
-		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), c.UserID)
+		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid))
 		if err != nil {
 			h.Log.Error("error loading node info", "node_id", nid, "user_id", c.UserID, "error", err)
 		} else if nodeDetails == nil {
-			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: c.UserID}
+			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: &c.UserID}
 		}
 		c.NodeDetails = nodeDetails
 	}
@@ -382,12 +525,12 @@ func (h *MeshtasticHook) processPosition(c *models.ClientDetails, env *pb.Servic
 		if err != nil {
 			return
 		}
-		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), c.UserID)
+		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid))
 		if err != nil {
 			h.Log.Error("error loading node info", "node_id", nid, "user_id", c.UserID, "error", err)
 			return
 		} else if nodeDetails == nil {
-			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: c.UserID}
+			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: &c.UserID}
 		}
 		c.NodeDetails = nodeDetails
 	}
@@ -431,12 +574,12 @@ func (h *MeshtasticHook) processMapReport(c *models.ClientDetails, env *pb.Servi
 		if err != nil {
 			return
 		}
-		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), c.UserID)
+		nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid))
 		if err != nil {
 			h.Log.Error("error loading node info", "node_id", nid, "user_id", c.UserID, "error", err)
 			return
 		} else if nodeDetails == nil {
-			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: c.UserID}
+			nodeDetails = &models.NodeInfo{NodeID: nid, UserID: &c.UserID}
 		}
 		c.NodeDetails = nodeDetails
 	}

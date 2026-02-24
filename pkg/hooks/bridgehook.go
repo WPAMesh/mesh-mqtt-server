@@ -246,8 +246,7 @@ func (h *BridgeHook) getMeshtasticNodeName(nodeID uint32) string {
 
 	// Try loading from storage
 	if h.config.Storage != nil {
-		// Try with user ID 0 first (anonymous)
-		node, err := h.config.Storage.NodeDB.GetNode(nodeID, 0)
+		node, err := h.config.Storage.NodeDB.GetNode(nodeID)
 		if err == nil && node != nil && node.LongName != "" {
 			h.updateMeshtasticNodeName(nodeID, node.LongName)
 			return node.LongName

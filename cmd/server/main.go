@@ -16,6 +16,7 @@ import (
 	cfg "github.com/kabili207/mesh-mqtt-server/pkg/config"
 	"github.com/kabili207/mesh-mqtt-server/pkg/discord"
 	"github.com/kabili207/mesh-mqtt-server/pkg/hooks"
+	"github.com/kabili207/mesh-mqtt-server/pkg/meshsense"
 	"github.com/kabili207/mesh-mqtt-server/pkg/routes"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	mqtt "github.com/mochi-mqtt/server/v2"
@@ -108,6 +109,21 @@ func run() error {
 
 	router.MqttServer = authHook
 
+	// Create MeshSense client if enabled
+	var meshSenseClient *meshsense.Client
+	if config.MeshSense.Enabled {
+		meshSenseClient = meshsense.NewClient(
+			config.MeshSense.URL,
+			config.MeshSettings.SelfNode.NodeID,
+			config.MeshSettings.SelfNode.ShortName,
+		)
+		url := config.MeshSense.URL
+		if url == "" {
+			url = meshsense.DefaultURL
+		}
+		slog.Info("MeshSense forwarding enabled", "url", url)
+	}
+
 	// Add Meshtastic protocol hook
 	meshHook := new(hooks.MeshtasticHook)
 	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{
@@ -115,6 +131,7 @@ func run() error {
 		Storage:      storage,
 		MeshSettings: config.MeshSettings,
 		AuthHook:     authHook,
+		MeshSense:    meshSenseClient,
 	})
 	if err != nil {
 		return fmt.Errorf("error adding meshtastic hook: %w", err)

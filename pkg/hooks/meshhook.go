@@ -12,6 +12,7 @@ import (
 	"github.com/mochi-mqtt/server/v2/packets"
 
 	"github.com/kabili207/mesh-mqtt-server/pkg/config"
+	"github.com/kabili207/mesh-mqtt-server/pkg/meshsense"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	meshtastic "github.com/kabili207/meshtastic-go/core"
@@ -68,6 +69,7 @@ type MeshtasticHookOptions struct {
 	Storage      *store.Stores
 	MeshSettings config.MeshSettings
 	AuthHook     *AuthHook
+	MeshSense    *meshsense.Client
 }
 
 const (
@@ -181,11 +183,11 @@ func (h *MeshtasticHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client,
 		cd.ProxyType = matches[1]
 		nid, err := meshtastic.ParseNodeID(matches[2])
 		if err == nil {
-			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), user.ID)
+			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid))
 			if err != nil {
 				h.Log.Error("error loading node info", "node_id", nid, "user_id", user.ID, "error", err)
 			} else if nodeDetails == nil {
-				nodeDetails = &models.NodeInfo{NodeID: nid, UserID: user.ID}
+				nodeDetails = &models.NodeInfo{NodeID: nid, UserID: &user.ID}
 			}
 			cd.NodeDetails = nodeDetails
 		}
@@ -577,11 +579,11 @@ func (h *MeshtasticHook) TrySetRootTopic(cd *models.ClientDetails, topic string)
 			if err != nil {
 				return
 			}
-			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid), cd.UserID)
+			nodeDetails, err := h.config.Storage.NodeDB.GetNode(uint32(nid))
 			if err != nil {
 				h.Log.Error("error loading node info", "node_id", nid, "user_id", cd.UserID, "error", err)
 			} else if nodeDetails == nil {
-				nodeDetails = &models.NodeInfo{NodeID: nid, UserID: cd.UserID}
+				nodeDetails = &models.NodeInfo{NodeID: nid, UserID: &cd.UserID}
 			}
 			cd.NodeDetails = nodeDetails
 		}

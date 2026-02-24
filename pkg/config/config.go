@@ -19,6 +19,7 @@ type Configuration struct {
 	MeshCore     MeshCoreSettings
 	Forwarding   ForwardingSettings
 	Bridge       BridgeSettings
+	MeshSense    MeshSenseSettings
 	Database     struct {
 		User     string
 		Password string
@@ -115,6 +116,14 @@ type BridgeSettings struct {
 	MeshCorePrefix string
 	// ParseSenderName attempts to extract "Name: message" format from MeshCore messages
 	ParseSenderName bool
+}
+
+// MeshSenseSettings configures forwarding node data to a MeshSense instance
+type MeshSenseSettings struct {
+	// Enabled controls whether MeshSense forwarding is active
+	Enabled bool
+	// URL is the MeshSense server URL (default: "https://meshsense.affirmatech.com")
+	URL string
 }
 
 // ChannelMapping defines a mapping between a Meshtastic channel and MeshCore channel

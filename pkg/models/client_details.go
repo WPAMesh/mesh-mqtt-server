@@ -88,7 +88,7 @@ type ClientDetails struct {
 
 type NodeInfo struct {
 	NodeID         meshtastic.NodeID `db:"node_id"`
-	UserID         int               `db:"user_id"`
+	UserID         *int              `db:"user_id"`
 	LongName       string            `db:"long_name"`
 	ShortName      string            `db:"short_name"`
 	NodeRole       string            `db:"node_role"`
@@ -217,7 +217,7 @@ func (c *ClientDetails) IsValidGateway() bool {
 
 func (c *ClientDetails) SyncUserID() {
 	if c.NodeDetails != nil {
-		c.NodeDetails.UserID = c.UserID
+		c.NodeDetails.UserID = &c.UserID
 	}
 }
 

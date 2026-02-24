@@ -144,6 +144,17 @@ bridge:
       direction: both                       # "both", "mt_to_mc", or "mc_to_mt"
 
 # =============================================================================
+# MeshSense Integration
+# =============================================================================
+# Forward node data (position, telemetry, node info, trace routes) to a
+# MeshSense instance. Defaults to the public MeshSense global map if no
+# custom URL is specified.
+meshSense:
+  enabled: false
+  # URL of the MeshSense server (default: "https://meshsense.affirmatech.com")
+  # url: "https://meshsense.affirmatech.com"
+
+# =============================================================================
 # MQTT Forwarding
 # =============================================================================
 # Forward MQTT packets to one or more external MQTT brokers.

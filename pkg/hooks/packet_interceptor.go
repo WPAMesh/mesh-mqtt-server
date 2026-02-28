@@ -10,14 +10,15 @@ import (
 	meshtastic "github.com/kabili207/meshtastic-go/core"
 	"github.com/kabili207/meshtastic-go/core/crypto"
 	pb "github.com/kabili207/meshtastic-go/core/proto"
+	"github.com/mochi-mqtt/server/v2/packets"
 	"google.golang.org/protobuf/proto"
 )
 
-func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env *pb.ServiceEnvelope) bool {
+func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env *pb.ServiceEnvelope) (bool, error) {
 
 	pkt := env.GetPacket()
 	if pkt == nil {
-		return false
+		return false, packets.ErrRejectPacket
 	}
 	shouldReencrypt := true
 	switch pkt.GetPayloadVariant().(type) {
@@ -26,7 +27,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 	}
 	decoded, err := crypto.TryDecode(pkt, crypto.DefaultKey)
 	if err != nil || decoded == nil {
-		return false
+		return false, nil
 	}
 
 	// Check if this packet is from the gateway node itself (not relayed)
@@ -65,7 +66,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 					"from", sendingNode)
 			}
 		}
-		return false
+		return false, packets.ErrRejectPacket
 	}
 
 	h.processMeshPacket(client, env, decoded)
@@ -77,11 +78,11 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 	} else {
 		rawData, err := proto.Marshal(decoded)
 		if err != nil {
-			return false
+			return false, packets.ErrRejectPacket
 		}
 		rawData, err = crypto.XOR(rawData, crypto.DefaultKey, pkt.Id, pkt.From)
 		if err != nil {
-			return false
+			return false, packets.ErrRejectPacket
 		}
 		pkt.PayloadVariant = &pb.MeshPacket_Encrypted{
 			Encrypted: rawData,
@@ -90,7 +91,7 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 
 	env.Packet = pkt
 
-	return true
+	return true, nil
 }
 
 func (h *MeshtasticHook) processMeshPacket(client *models.ClientDetails, env *pb.ServiceEnvelope, data *pb.Data) {

@@ -548,7 +548,10 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 	if cd != nil && cd.IsMeshDevice() {
 		h.TrySetRootTopic(cd, pk.TopicName)
 	}
-	h.TryProcessMeshPacket(cd, &env)
+	_, err = h.TryProcessMeshPacket(cd, &env)
+	if err != nil {
+		return pk, err
+	}
 	payload, err := proto.Marshal(&env)
 	if err != nil {
 		// Do not allow non-meshtastic payloads in the msh tree

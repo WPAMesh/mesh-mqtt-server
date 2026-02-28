@@ -3,6 +3,7 @@ package hooks
 import (
 	"bytes"
 	"sync"
+	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -136,6 +137,7 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 		ClientID:     clientID,
 		UserID:       validatedUser.ID,
 		Address:      cl.Net.Remote,
+		ConnectedAt:  time.Now(),
 	}
 
 	// Let enrichers classify and populate protocol-specific fields
@@ -224,6 +226,24 @@ func (h *AuthHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 		h.Log.Info("client disconnected", "client", cl.ID, "expire", expire, "error", err)
 	} else {
 		h.Log.Info("client disconnected", "client", cl.ID, "expire", expire)
+	}
+
+	if ok && cd.IsMeshDevice() && err != nil {
+		sessionDuration := time.Since(cd.ConnectedAt)
+		if sessionDuration < 15*time.Second {
+			attrs := []any{
+				"client", cl.ID,
+				"session_duration", sessionDuration.Round(time.Millisecond),
+			}
+			if cd.ProxyType != "" {
+				attrs = append(attrs, "proxy", cd.ProxyType)
+			}
+			if cd.ProxyType != "" && sessionDuration >= 7*time.Second && sessionDuration <= 12*time.Second {
+				h.Log.Warn("proxy client BLE heartbeat timeout - device is not responding to the mobile app", attrs...)
+			} else {
+				h.Log.Warn("mesh client disconnected shortly after connecting", attrs...)
+			}
+		}
 	}
 
 	if deleted {

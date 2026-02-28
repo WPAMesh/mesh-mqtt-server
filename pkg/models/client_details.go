@@ -84,6 +84,7 @@ type ClientDetails struct {
 	HasMissingOkToMqtt bool          // True if we detected packets from this gateway without OkToMQTT bit
 	OkToMqttStats      OkToMqttStats // Stats tracking for OK to MQTT flag on gateway packets
 	DirectMCNodes      map[string]bool // Direct-connect MeshCore node pubkey hexes tracked by this bridge client
+	ConnectedAt        time.Time     // When this client connected
 }
 
 type NodeInfo struct {

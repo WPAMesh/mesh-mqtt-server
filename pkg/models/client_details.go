@@ -38,6 +38,42 @@ type OkToMqttStats struct {
 	ByPortNum map[int32]*PortNumStats
 }
 
+// OkToMqttWindow tracks recent OkToMQTT violations using a ring buffer of timestamps.
+// If any violation falls within the window duration, the node is considered to have
+// missing OkToMQTT. Violations age out automatically, allowing recovery without reconnection.
+type OkToMqttWindow struct {
+	violations [8]time.Time // Ring buffer of violation timestamps
+	pos        int          // Next write position
+	count      int          // Number of recorded violations (capped at buffer size)
+	window     time.Duration
+}
+
+// NewOkToMqttWindow creates a window tracker with the given duration.
+func NewOkToMqttWindow(window time.Duration) OkToMqttWindow {
+	return OkToMqttWindow{window: window}
+}
+
+// RecordViolation records a packet that was missing the OkToMQTT flag.
+func (w *OkToMqttWindow) RecordViolation(t time.Time) {
+	w.violations[w.pos] = t
+	w.pos = (w.pos + 1) % len(w.violations)
+	if w.count < len(w.violations) {
+		w.count++
+	}
+}
+
+// HasRecentViolation returns true if any recorded violation is within the window.
+func (w *OkToMqttWindow) HasRecentViolation(now time.Time) bool {
+	cutoff := now.Add(-w.window)
+	limit := w.count
+	for i := range limit {
+		if w.violations[i].After(cutoff) {
+			return true
+		}
+	}
+	return false
+}
+
 // RecordPacket records a packet from the gateway node with or without the OK to MQTT flag
 func (s *OkToMqttStats) RecordPacket(portNum int32, hasFlag bool) {
 	if s.ByPortNum == nil {
@@ -80,9 +116,9 @@ type ClientDetails struct {
 	InvalidPackets     int
 	ValidGWChecker     func() bool
 	IsBridgeClient     bool          // True if this is a MeshCore bridge client (meshcore-bridge-*)
-	HasPublished       bool          // True if this non-mesh client has published to mesh topics
-	HasMissingOkToMqtt bool          // True if we detected packets from this gateway without OkToMQTT bit
-	OkToMqttStats      OkToMqttStats // Stats tracking for OK to MQTT flag on gateway packets
+	HasPublished       bool             // True if this non-mesh client has published to mesh topics
+	OkToMqttViolations OkToMqttWindow   // Rolling window of packets missing the OkToMQTT bit
+	OkToMqttStats      OkToMqttStats    // Stats tracking for OK to MQTT flag on gateway packets
 	DirectMCNodes      map[string]bool // Direct-connect MeshCore node pubkey hexes tracked by this bridge client
 	ConnectedAt        time.Time     // When this client connected
 }
@@ -211,7 +247,7 @@ func (c *ClientDetails) IsValidGateway() bool {
 		extValid = c.ValidGWChecker()
 	}
 	return extValid && c.NodeDetails != nil && c.ProxyType == "" && c.IsDownlinkVerified() &&
-		c.IsUsingGatewayTopic() && !c.HasMissingOkToMqtt && c.NodeDetails.NodeRole != "" &&
+		c.IsUsingGatewayTopic() && !c.OkToMqttViolations.HasRecentViolation(time.Now()) && c.NodeDetails.NodeRole != "" &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_CLIENT_MUTE.String() &&
 		c.NodeDetails.NodeRole != pb.Config_DeviceConfig_ROUTER_CLIENT.String()
 }
@@ -262,7 +298,7 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	} else if c.NodeDetails.NodeRole == pb.Config_DeviceConfig_ROUTER_CLIENT.String() {
 		errs = append(errs, fmt.Sprintf("Deprecated node role: %s", pb.Config_DeviceConfig_ROUTER_CLIENT.String()))
 	}
-	if c.HasMissingOkToMqtt {
+	if c.OkToMqttViolations.HasRecentViolation(time.Now()) {
 		errs = append(errs, "Node is sending packets without OK to MQTT enabled")
 	}
 

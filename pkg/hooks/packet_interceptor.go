@@ -48,9 +48,9 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 
 	if !hasOkToMqtt {
 		if isFromGateway && client != nil && client.IsMeshDevice() {
-			// Flag that this gateway is sending packets without OkToMQTT
-			if !client.HasMissingOkToMqtt {
-				client.HasMissingOkToMqtt = true
+			wasViolating := client.OkToMqttViolations.HasRecentViolation(time.Now())
+			client.OkToMqttViolations.RecordViolation(time.Now())
+			if !wasViolating {
 				h.Log.Warn("gateway sending packets without OkToMQTT bit",
 					"client", client.ClientID,
 					"node", sendingNode,

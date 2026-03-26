@@ -133,11 +133,12 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	}
 
 	cd := &models.ClientDetails{
-		MqttUserName: user,
-		ClientID:     clientID,
-		UserID:       validatedUser.ID,
-		Address:      cl.Net.Remote,
-		ConnectedAt:  time.Now(),
+		MqttUserName:       user,
+		ClientID:           clientID,
+		UserID:             validatedUser.ID,
+		Address:            cl.Net.Remote,
+		ConnectedAt:        time.Now(),
+		OkToMqttViolations: models.NewOkToMqttWindow(10 * time.Minute),
 	}
 
 	// Let enrichers classify and populate protocol-specific fields

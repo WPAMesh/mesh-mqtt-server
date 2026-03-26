@@ -1,17 +1,5 @@
 package components
 
-import "encoding/json"
-
-func nodesToValidationErrorsJSON(nodes []NodeData) string {
-	errors := make(map[string][]string)
-	for _, node := range nodes {
-		if node.NodeID != "" && len(node.ValidationErrors) > 0 {
-			errors[node.NodeID] = node.ValidationErrors
-		}
-	}
-	data, _ := json.Marshal(errors)
-	return string(data)
-}
 
 templ MyNodesPage(data MyNodesPageData) {
 	@Base("My Nodes - WPAmesh") {
@@ -55,9 +43,6 @@ templ MyNodesPage(data MyNodesPageData) {
 				<h3 class="mt-6">Other Connections</h3>
 				@OtherClientsTable(data.OtherClients, false)
 			</div>
-
-			<!-- Store validation errors for JavaScript access -->
-			@templ.Raw("<script>window.nodeValidationErrors = " + nodesToValidationErrorsJSON(data.Nodes) + ";</script>")
 
 			if data.MqttConfig != nil {
 				@templ.Raw("<script>window.mqttTopics = { standard: '" + data.MqttConfig.RootTopic + "', gateway: '" + data.MqttConfig.GatewayTopic + "' };</script>")

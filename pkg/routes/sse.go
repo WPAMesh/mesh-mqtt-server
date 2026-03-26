@@ -284,7 +284,7 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			LongName:         c.GetLongName(),
 			NodeColor:        nodeColor,
 			ProxyType:        c.ProxyType,
-			Address:          c.Address,
+			Address:          ipAddr,
 			RootTopic:        c.RootTopic,
 			NodeRole:         nodeRole,
 			HwModel:          hwModel,
@@ -298,6 +298,7 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			ClientID:         c.ClientID,
 			UserDisplay:      userDisplay,
 			ValidationErrors: c.GetValidationErrors(),
+			OkToMqttStats:    convertOkToMqttStats(&c.OkToMqttStats),
 		})
 	}
 

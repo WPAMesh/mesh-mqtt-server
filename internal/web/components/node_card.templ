@@ -94,7 +94,7 @@ templ NodeGridContent(nodes []NodeData) {
 
 // ValidationErrorsData renders a script that stores validation errors for the modal
 templ ValidationErrorsData(nodes []NodeData) {
-	@templ.Raw("<script>window.nodeValidationErrors = Object.assign(window.nodeValidationErrors || {}, " + nodeValidationErrorsJSON(nodes) + ");</script>")
+	@templ.Raw("<script>window.nodeValidationErrors = " + nodeValidationErrorsJSON(nodes) + ";</script>")
 }
 
 // NodeTableRow renders a single row in the nodes table (for admin view)
@@ -268,6 +268,7 @@ templ NodesTableContent(nodes []NodeData, showUser bool) {
 			@NodeTableRow(node, showUser)
 		}
 	}
+	@ValidationErrorsData(nodes)
 }
 
 // BridgeClientsTable renders a table of MeshCore bridge clients

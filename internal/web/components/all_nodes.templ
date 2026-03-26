@@ -27,6 +27,12 @@ templ AllNodesPage(data AllNodesPageData) {
 				</div>
 				@NodesTable(data.Nodes, true)
 
+				<!-- Validation Errors Modal -->
+				@ValidationModal()
+
+				<!-- Store validation errors for JavaScript access -->
+				@ValidationErrorsData(data.Nodes)
+
 				<h3 class="mt-6">Bridge Clients</h3>
 				@BridgeClientsTable(data.BridgeClients, true)
 

@@ -1,0 +1,114 @@
+/* ========================================
+   Forms: Buttons, Inputs, Toggles
+   ======================================== */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--mg-control-radius);
+  border: 1px solid var(--mg-color-quaternary);
+  background: transparent;
+  color: var(--mg-color-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+
+  &:hover {
+    background: var(--mg-color-quinary);
+  }
+
+  &.btn-primary {
+    background: var(--mg-color-primary);
+    border-color: var(--mg-color-primary);
+    color: white;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &.btn-danger {
+    background: var(--mg-color-red);
+    border-color: var(--mg-color-red);
+    color: white;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Input Fields */
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--mg-control-radius);
+  border: 1px solid var(--mg-color-quaternary);
+  background: var(--mg-color-initial);
+  color: var(--mg-color-secondary);
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--mg-color-primary);
+  }
+
+  &::placeholder {
+    color: var(--mg-color-tertiary);
+  }
+}
+
+/* Toggle Switch */
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  display: none;
+
+  &:checked + .toggle-switch {
+    background: var(--mg-color-primary);
+
+    &::after {
+      transform: translateX(20px);
+    }
+  }
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  min-width: 44px;
+  height: 24px;
+  background: var(--mg-color-quaternary);
+  border-radius: 12px;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+  }
+}

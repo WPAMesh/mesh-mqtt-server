@@ -44,7 +44,7 @@ func Layout(props LayoutProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"wrapper\"><header class=\"flex items-center w-full py-4 gap-4 flex-wrap\"><div class=\"logo-view flex-grow min-w-0\"><a href=\"/\" class=\"flex items-center gap-2\"><img class=\"logo w-16 md:w-24 flex-shrink-0\" src=\"/static/pgh_mesh_nobg.svg\" alt=\"Pittsburgh Mesh Logo\"> <span class=\"text-l md:text-2xl lg:text-3xl font-light whitespace-nowrap\">MQTT Server</span></a></div><nav id=\"header-nav\" class=\"hidden md:block\"><ul class=\"flex flex-row gap-1 text-sm lg:text-base\" data-toggle=\"nav\"><li class=\"px-2 py-1 lg:px-3 lg:py-2\"><a href=\"/\" class=\"hover:text-primary\">My Nodes</a></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"wrapper\"><header class=\"flex items-center w-full py-4 gap-4 flex-wrap\"><div class=\"logo-view flex-grow min-w-0\"><a href=\"/\" class=\"flex items-center gap-2\"><img class=\"logo w-16 md:w-24 flex-shrink-0\" src=\"/static/pgh_mesh_nobg.svg\" alt=\"Pittsburgh Mesh Logo\"> <span class=\"text-lg md:text-2xl lg:text-3xl font-light whitespace-nowrap\">MQTT Server</span></a></div><nav id=\"header-nav\" class=\"hidden md:block\"><ul class=\"flex flex-row gap-1 text-sm lg:text-base\" data-toggle=\"nav\"><li class=\"px-2 py-1 lg:px-3 lg:py-2\"><a href=\"/\" class=\"hover:text-primary\">My Nodes</a></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,0 +1,107 @@
+/* ========================================
+   Modals: Overlay, Content, Close Button
+   ======================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+
+  &.opened {
+    display: flex;
+  }
+}
+
+.modal-content {
+  position: relative;
+  background: var(--mg-color-initial);
+  border-radius: var(--mg-control-radius);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: var(--mg-color-secondary);
+  line-height: 1;
+  padding: 0.5rem;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mg-color-quinary);
+}
+
+/* Validation Errors Modal */
+.validation-modal-content {
+  max-width: 600px;
+  padding: 2rem;
+
+  & h3 {
+    color: var(--mg-color-primary);
+    margin-bottom: 1.5rem;
+  }
+}
+
+.validation-errors-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  & li {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    background: color-mix(in srgb, var(--mg-color-red) 10%, transparent);
+    border-left: 3px solid var(--mg-color-red);
+    border-radius: 0.25rem;
+    color: var(--mg-color-secondary);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+
+    & i {
+      color: var(--mg-color-red);
+      margin-top: 0.2rem;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.validation-success {
+  padding: 1rem;
+  background: color-mix(in srgb, var(--mg-color-green) 10%, transparent);
+  border-left: 3px solid var(--mg-color-green);
+  border-radius: 0.25rem;
+  color: var(--mg-color-green);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+
+  & i {
+    font-size: 1.25rem;
+  }
+}

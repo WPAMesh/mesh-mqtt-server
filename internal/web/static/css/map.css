@@ -1,0 +1,72 @@
+/* ========================================
+   Map: Leaflet Container, Popups, Clusters
+   ======================================== */
+
+#node-map {
+  height: 600px;
+  border-radius: 0.5rem;
+  background: var(--mg-color-quinary);
+  border: 1px solid var(--mg-color-quaternary);
+}
+
+.map-popup {
+  font-size: 0.875rem;
+  line-height: 1.5;
+
+  & strong {
+    font-size: 1rem;
+  }
+
+  & code {
+    background: #eee;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Map cluster overrides */
+.marker-cluster {
+  background-clip: padding-box;
+  border-radius: 20px;
+
+  & div {
+    width: 30px;
+    height: 30px;
+    margin-left: 5px;
+    margin-top: 5px;
+    text-align: center;
+    border-radius: 15px;
+    font: 12px Roboto, sans-serif;
+    font-weight: bold;
+    color: #fff;
+  }
+
+  & span {
+    line-height: 30px;
+  }
+}
+
+.marker-cluster-small {
+  background: rgba(80, 163, 103, 0.4);
+
+  & div {
+    background: rgba(80, 163, 103, 0.8);
+  }
+}
+
+.marker-cluster-medium {
+  background: rgba(0, 123, 255, 0.4);
+
+  & div {
+    background: rgba(0, 123, 255, 0.8);
+  }
+}
+
+.marker-cluster-large {
+  background: rgba(253, 126, 20, 0.4);
+
+  & div {
+    background: rgba(253, 126, 20, 0.8);
+  }
+}

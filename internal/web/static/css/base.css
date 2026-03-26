@@ -1,0 +1,167 @@
+/* ========================================
+   Base: Variables, Reset, Layout Shell
+   ======================================== */
+
+:root {
+  /* Needed for light-dark() to work */
+  color-scheme: light dark;
+
+  /* Base colors */
+  --mg-color-dark: hsl(255deg 0% 15%);
+  --mg-color-light: hsl(255deg 0% 95%);
+  --mg-color-primary: #50a367;
+  --mg-control-radius: 1rem;
+  --mg-input-radius: 1rem;
+  --mg-color-red: #dc3545;
+  --mg-color-orange: #fd7e14;
+  --mg-color-blue: #007bff;
+  --mg-color-green: #50a367;
+
+  /* Gray scale (for dark theme) */
+  --mg-color-secondary: #e9ecef;
+  --mg-color-tertiary: #adb5bd;
+  --mg-color-quaternary: #495057;
+  --mg-color-quinary: #343a40;
+  --mg-color-initial: #212529;
+}
+
+/* Reset (replaces Tailwind preflight) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+ol, ul {
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+html, body {
+  height: 100%;
+}
+
+.hidden-ux {
+  visibility: hidden;
+}
+
+.main {
+  height: 100%;
+
+  &:has(.login-form) {
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+.wrapper {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+
+  & > header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  & > footer {
+    padding: 1rem;
+  }
+}
+
+.logo-view {
+  flex-grow: 1;
+
+  & a > img,
+  & a > span {
+    vertical-align: middle;
+  }
+
+  & a > span {
+    font-size: 4rem;
+    color: var(--mg-color-green);
+  }
+}
+
+.logo {
+  /* Width controlled by utility classes (w-16 md:w-24) in template */
+}
+
+#header-nav {
+  font-size: 120%;
+}
+
+.burger {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+/* Mobile overrides */
+@media only screen and (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  .main {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  .wrapper {
+    max-width: 100%;
+    overflow-x: hidden;
+
+    & > header {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+
+  .logo-view {
+    overflow: hidden;
+
+    & a {
+      overflow: hidden;
+    }
+
+    & a > span {
+      font-size: 2rem !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .container {
+    max-width: 100%;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}

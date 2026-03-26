@@ -2,7 +2,7 @@ package components
 
 templ Base(title string) {
 	<!DOCTYPE html>
-	<html lang="en" class="dark">
+	<html lang="en">
 		<head>
 			<!-- Google Fonts -->
 			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"/>
@@ -10,39 +10,17 @@ templ Base(title string) {
 			<!-- Font Awesome -->
 			<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css"/>
 
-			<!-- Tailwind CSS -->
-			<script src="https://cdn.tailwindcss.com"></script>
-			<script>
-				tailwind.config = {
-					darkMode: 'class',
-					theme: {
-						extend: {
-							colors: {
-								primary: '#50a367',
-								secondary: '#6c757d',
-								tertiary: '#adb5bd',
-								quaternary: '#495057',
-								quinary: '#343a40',
-								initial: '#212529',
-								'mg-dark': 'hsl(255deg 0% 15%)',
-								'mg-light': 'hsl(255deg 0% 95%)',
-								'mg-red': '#dc3545',
-								'mg-orange': '#fd7e14',
-								'mg-blue': '#007bff',
-								'mg-green': '#50a367',
-							},
-							fontFamily: {
-								sans: ['Roboto', 'sans-serif'],
-							},
-							borderRadius: {
-								'mg': '1rem',
-							}
-						}
-					}
-				}
-			</script>
-
-			<link rel="stylesheet" href="/static/styles.css"/>
+			<!-- Application CSS -->
+			<link rel="stylesheet" href="/static/css/utilities.css"/>
+			<link rel="stylesheet" href="/static/css/base.css"/>
+			<link rel="stylesheet" href="/static/css/forms.css"/>
+			<link rel="stylesheet" href="/static/css/modals.css"/>
+			<link rel="stylesheet" href="/static/css/tables.css"/>
+			<link rel="stylesheet" href="/static/css/node-cards.css"/>
+			<link rel="stylesheet" href="/static/css/wizard.css"/>
+			<link rel="stylesheet" href="/static/css/forwarding.css"/>
+			<link rel="stylesheet" href="/static/css/map.css"/>
+			<link rel="stylesheet" href="/static/css/users.css"/>
 
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="theme-color" content="#94b5eb"/>
@@ -60,7 +38,7 @@ templ Base(title string) {
 // BaseLogin is a simpler base for the login page without the full layout
 templ BaseLogin(title string) {
 	<!DOCTYPE html>
-	<html lang="en" class="dark">
+	<html lang="en">
 		<head>
 			<!-- Google Fonts -->
 			<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"/>
@@ -68,39 +46,10 @@ templ BaseLogin(title string) {
 			<!-- Font Awesome -->
 			<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css"/>
 
-			<!-- Tailwind CSS -->
-			<script src="https://cdn.tailwindcss.com"></script>
-			<script>
-				tailwind.config = {
-					darkMode: 'class',
-					theme: {
-						extend: {
-							colors: {
-								primary: '#50a367',
-								secondary: '#6c757d',
-								tertiary: '#adb5bd',
-								quaternary: '#495057',
-								quinary: '#343a40',
-								initial: '#212529',
-								'mg-dark': 'hsl(255deg 0% 15%)',
-								'mg-light': 'hsl(255deg 0% 95%)',
-								'mg-red': '#dc3545',
-								'mg-orange': '#fd7e14',
-								'mg-blue': '#007bff',
-								'mg-green': '#50a367',
-							},
-							fontFamily: {
-								sans: ['Roboto', 'sans-serif'],
-							},
-							borderRadius: {
-								'mg': '1rem',
-							}
-						}
-					}
-				}
-			</script>
-
-			<link rel="stylesheet" href="/static/styles.css"/>
+			<!-- Application CSS -->
+			<link rel="stylesheet" href="/static/css/utilities.css"/>
+			<link rel="stylesheet" href="/static/css/base.css"/>
+			<link rel="stylesheet" href="/static/css/forms.css"/>
 
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="theme-color" content="#94b5eb"/>

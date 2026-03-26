@@ -410,7 +410,7 @@ func ValidationErrorsData(nodes []NodeData) templ.Component {
 			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templ.Raw("<script>window.nodeValidationErrors = Object.assign(window.nodeValidationErrors || {}, "+nodeValidationErrorsJSON(nodes)+");</script>").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templ.Raw("<script>window.nodeValidationErrors = "+nodeValidationErrorsJSON(nodes)+";</script>").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1134,6 +1134,10 @@ func NodesTableContent(nodes []NodeData, showUser bool) templ.Component {
 				}
 			}
 		}
+		templ_7745c5c3_Err = ValidationErrorsData(nodes).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		return nil
 	})
 }
@@ -1217,7 +1221,7 @@ func BridgeClientsTableContent(clients []BridgeClientData, showUser bool) templ.
 			var templ_7745c5c3_Var66 string
 			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(otherClientsColSpan(showUser))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 296, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 297, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 			if templ_7745c5c3_Err != nil {
@@ -1236,7 +1240,7 @@ func BridgeClientsTableContent(clients []BridgeClientData, showUser bool) templ.
 				var templ_7745c5c3_Var67 string
 				templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(client.ClientID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 301, Col: 25}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 302, Col: 25}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 				if templ_7745c5c3_Err != nil {
@@ -1250,7 +1254,7 @@ func BridgeClientsTableContent(clients []BridgeClientData, showUser bool) templ.
 					var templ_7745c5c3_Var68 string
 					templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(client.Address)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 304, Col: 22}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 305, Col: 22}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 					if templ_7745c5c3_Err != nil {
@@ -1274,7 +1278,7 @@ func BridgeClientsTableContent(clients []BridgeClientData, showUser bool) templ.
 					var templ_7745c5c3_Var69 string
 					templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(client.UserDisplay)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 310, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 311, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 					if templ_7745c5c3_Err != nil {
@@ -1374,7 +1378,7 @@ func OtherClientsTableContent(clients []OtherClientData, showUser bool) templ.Co
 			var templ_7745c5c3_Var72 string
 			templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(otherClientsColSpan(showUser))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 340, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 341, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 			if templ_7745c5c3_Err != nil {
@@ -1393,7 +1397,7 @@ func OtherClientsTableContent(clients []OtherClientData, showUser bool) templ.Co
 				var templ_7745c5c3_Var73 string
 				templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(client.ClientID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 345, Col: 25}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 346, Col: 25}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 				if templ_7745c5c3_Err != nil {
@@ -1407,7 +1411,7 @@ func OtherClientsTableContent(clients []OtherClientData, showUser bool) templ.Co
 					var templ_7745c5c3_Var74 string
 					templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(client.Address)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 348, Col: 22}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 349, Col: 22}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 					if templ_7745c5c3_Err != nil {
@@ -1431,7 +1435,7 @@ func OtherClientsTableContent(clients []OtherClientData, showUser bool) templ.Co
 					var templ_7745c5c3_Var75 string
 					templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(client.UserDisplay)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 354, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/components/node_card.templ`, Line: 355, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 					if templ_7745c5c3_Err != nil {

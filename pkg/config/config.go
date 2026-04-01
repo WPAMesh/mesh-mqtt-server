@@ -53,6 +53,20 @@ type MeshSettings struct {
 		LongName  string
 		ShortName string
 	}
+	RateLimit RateLimitSettings
+}
+
+// RateLimitSettings configures per-node packet rate limiting.
+// Limits how many unique packets a single mesh node can send within a time window.
+// Duplicate packets (same packet ID from different gateways) are always allowed
+// through, since mapping software uses them for RF path analysis.
+type RateLimitSettings struct {
+	// Enabled controls whether per-node rate limiting is active
+	Enabled bool
+	// MaxPackets is the maximum number of unique packets allowed per node per window
+	MaxPackets int
+	// Window is the time window duration (e.g., "1m", "30s")
+	Window string
 }
 
 type MeshChannelDef struct {

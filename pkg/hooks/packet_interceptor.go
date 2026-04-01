@@ -20,6 +20,20 @@ func (h *MeshtasticHook) TryProcessMeshPacket(client *models.ClientDetails, env 
 	if pkt == nil {
 		return false, packets.ErrRejectPacket
 	}
+
+	// Check if source node is blocked (before spending CPU on decryption)
+	if blocked, _ := h.config.Storage.BlockedNodes.IsBlocked(pkt.From); blocked {
+		return false, packets.ErrRejectPacket
+	}
+
+	// Check per-node rate limit
+	if h.rateLimiter != nil && !h.rateLimiter.AllowPacket(pkt.From, pkt.Id) {
+		h.Log.Debug("rate limited packet from node",
+			"node", meshtastic.NodeID(pkt.From),
+			"packet_id", pkt.Id)
+		return false, packets.ErrRejectPacket
+	}
+
 	shouldReencrypt := true
 	switch pkt.GetPayloadVariant().(type) {
 	case *pb.MeshPacket_Decoded:

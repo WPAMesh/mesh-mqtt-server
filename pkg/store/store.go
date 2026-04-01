@@ -22,6 +22,7 @@ type Stores struct {
 	NodeDB         NodeInfoStore
 	MeshCoreNodes  MeshCoreNodeStore
 	VirtualNodes   VirtualNodeStore
+	BlockedNodes   BlockedNodeStore
 	db             *sqlx.DB
 }
 
@@ -34,6 +35,7 @@ func New(dbconn *sqlx.DB) (*Stores, error) {
 		NodeDB:        NewNodeDB(dbconn),
 		MeshCoreNodes: NewMeshCoreNodeDB(dbconn),
 		VirtualNodes:  NewVirtualNodeStore(dbconn),
+		BlockedNodes:  NewBlockedNodeStore(dbconn),
 	}, nil
 }
 

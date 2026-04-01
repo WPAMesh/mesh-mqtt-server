@@ -81,6 +81,7 @@ type MeshtasticHook struct {
 	mqtt.HookBase
 	config          *MeshtasticHookOptions
 	currentPacketId uint32
+	rateLimiter     *NodeRateLimiter
 	stopChan        chan struct{}
 }
 
@@ -116,6 +117,24 @@ func (h *MeshtasticHook) Init(config any) error {
 
 	h.stopChan = make(chan struct{})
 
+	// Start per-node rate limiter if configured
+	if h.config.MeshSettings.RateLimit.Enabled {
+		window, err := time.ParseDuration(h.config.MeshSettings.RateLimit.Window)
+		if err != nil || window <= 0 {
+			window = time.Minute
+		}
+		maxPkts := h.config.MeshSettings.RateLimit.MaxPackets
+		if maxPkts <= 0 {
+			maxPkts = 50
+		}
+		h.rateLimiter = NewNodeRateLimiter(RateLimitConfig{
+			MaxPackets: maxPkts,
+			Window:     window,
+		})
+		h.rateLimiter.Start()
+		h.Log.Info("per-node rate limiting enabled", "max_packets", maxPkts, "window", window)
+	}
+
 	// Start periodic verification checker
 	go h.runPeriodicVerificationChecker()
 
@@ -127,6 +146,9 @@ func (h *MeshtasticHook) Stop() error {
 	h.Log.Info("stopping mesht-hook")
 	if h.stopChan != nil {
 		close(h.stopChan)
+	}
+	if h.rateLimiter != nil {
+		h.rateLimiter.Stop()
 	}
 	return nil
 }

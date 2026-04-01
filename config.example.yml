@@ -89,6 +89,15 @@ meshSettings:
   #   - LongFast
   #   - MediumFast
 
+  # Per-node rate limiting for mesh packets.
+  # Limits how many unique packets a single mesh node can send within a time
+  # window. Duplicate packets (same packet ID from different gateways) are
+  # always allowed through for RF path analysis by mapping software.
+  # rateLimit:
+  #   enabled: false
+  #   maxPackets: 50   # max unique packets per node per window
+  #   window: "1m"     # time window duration
+
 # =============================================================================
 # MeshCore Protocol Support
 # =============================================================================

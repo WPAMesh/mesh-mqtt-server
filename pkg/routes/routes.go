@@ -22,6 +22,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 	mccodec "github.com/kabili207/meshcore-go/core/codec"
+	meshtastic "github.com/kabili207/meshtastic-go/core"
 	pb "github.com/kabili207/meshtastic-go/core/proto"
 	"golang.org/x/oauth2"
 )
@@ -157,6 +158,9 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/api/forwarding/status", wr.getForwardingStatus).Methods("GET")
 	myRouter.HandleFunc("/api/gateway-stats", wr.getGatewayStats).Methods("GET")
 	myRouter.HandleFunc("/api/map-data", wr.getMapData).Methods("GET")
+	myRouter.HandleFunc("/api/blocked-nodes", wr.getBlockedNodes).Methods("GET")
+	myRouter.HandleFunc("/api/blocked-nodes", wr.blockNode).Methods("POST")
+	myRouter.HandleFunc("/api/blocked-nodes/{nodeId}", wr.unblockNode).Methods("DELETE")
 	myRouter.HandleFunc("/map", wr.mapPage)
 	myRouter.HandleFunc("/auth/logout", wr.userLogoutHandler)
 	myRouter.HandleFunc("/auth/discord/login", wr.discordLoginHandler)
@@ -917,4 +921,112 @@ func (wr *WebRouter) mapPage(w http.ResponseWriter, r *http.Request) {
 		slog.Error("error rendering map page", "error", err)
 		http.Error(w, "Error rendering page", http.StatusInternalServerError)
 	}
+}
+
+func (wr *WebRouter) getBlockedNodes(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsAdminOrAbove() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	nodes, err := wr.storage.BlockedNodes.GetAll()
+	if err != nil {
+		slog.Error("error fetching blocked nodes", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(nodes)
+}
+
+type BlockNodeRequest struct {
+	NodeID string `json:"node_id"`
+	Reason string `json:"reason"`
+}
+
+func (wr *WebRouter) blockNode(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsAdminOrAbove() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	var req BlockNodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	nodeID, err := meshtastic.ParseNodeID(req.NodeID)
+	if err != nil {
+		http.Error(w, "Invalid node ID", http.StatusBadRequest)
+		return
+	}
+
+	err = wr.storage.BlockedNodes.Block(uint32(nodeID), req.Reason, &user.ID)
+	if err != nil {
+		slog.Error("error blocking node", "error", err, "node_id", req.NodeID)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("node blocked", "node_id", nodeID, "reason", req.Reason, "blocked_by", user.ID)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Node blocked successfully",
+	})
+}
+
+func (wr *WebRouter) unblockNode(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsAdminOrAbove() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	vars := mux.Vars(r)
+	nodeIDStr := vars["nodeId"]
+	if nodeIDStr == "" {
+		http.Error(w, "Node ID required", http.StatusBadRequest)
+		return
+	}
+
+	nodeID, err := meshtastic.ParseNodeID(nodeIDStr)
+	if err != nil {
+		http.Error(w, "Invalid node ID", http.StatusBadRequest)
+		return
+	}
+
+	err = wr.storage.BlockedNodes.Unblock(uint32(nodeID))
+	if err != nil {
+		slog.Error("error unblocking node", "error", err, "node_id", nodeIDStr)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("node unblocked", "node_id", nodeID, "unblocked_by", user.ID)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Node unblocked successfully",
+	})
 }

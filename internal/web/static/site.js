@@ -763,6 +763,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize users table if present (replaces htmx hx-trigger="load")
   initUsersTable();
+
+  // Initialize blocked nodes table if present
+  initBlockedNodesTable();
 });
 
 /**
@@ -790,4 +793,29 @@ async function initUsersTable() {
 // Function to refresh users table (called after edits/deletes)
 async function refreshUsersTable() {
   await initUsersTable();
+}
+
+/**
+ * Blocked nodes table initialization
+ */
+async function initBlockedNodesTable() {
+  const tbody = document.getElementById('blocked-nodes-tbody');
+  if (!tbody) return;
+
+  try {
+    const response = await fetch('/api/blocked-nodes-html');
+    if (response.ok) {
+      tbody.innerHTML = await response.text();
+      tbody.querySelectorAll('script').forEach(script => {
+        try { eval(script.textContent); } catch (e) { console.error('Error executing inline script:', e); }
+      });
+    }
+  } catch (error) {
+    console.error('Error loading blocked nodes:', error);
+    tbody.innerHTML = '<tr><td colspan="6" class="error-message">Error loading blocked nodes</td></tr>';
+  }
+}
+
+async function refreshBlockedNodesTable() {
+  await initBlockedNodesTable();
 }

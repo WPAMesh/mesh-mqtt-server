@@ -103,6 +103,23 @@ type MapPageData struct {
 	IsAdmin     bool
 }
 
+// BlockedNodesPageData holds data for the blocked nodes page
+type BlockedNodesPageData struct {
+	IsSuperuser bool
+	IsAdmin     bool
+}
+
+// BlockedNodeRowData represents a blocked node for display
+type BlockedNodeRowData struct {
+	NodeID      string  `json:"node_id"`
+	NodeColor   string  `json:"node_color,omitempty"`
+	LongName    string  `json:"long_name,omitempty"`
+	ShortName   string  `json:"short_name,omitempty"`
+	Reason      string  `json:"reason"`
+	BlockedAt   string  `json:"blocked_at"`
+	BlockedBy   string  `json:"blocked_by,omitempty"`
+}
+
 // ForwardingTargetData holds forwarding target status for display
 type ForwardingTargetData struct {
 	Name          string

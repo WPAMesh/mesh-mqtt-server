@@ -157,6 +157,8 @@ func (wr *WebRouter) handleRequests(listenAddr string) error {
 	myRouter.HandleFunc("/api/users/{id}", wr.deleteUser).Methods("DELETE")
 	myRouter.HandleFunc("/api/forwarding/status", wr.getForwardingStatus).Methods("GET")
 	myRouter.HandleFunc("/api/gateway-stats", wr.getGatewayStats).Methods("GET")
+	myRouter.HandleFunc("/blocked-nodes", wr.blockedNodesPage)
+	myRouter.HandleFunc("/api/blocked-nodes-html", wr.blockedNodesHTML).Methods("GET")
 	myRouter.HandleFunc("/api/map-data", wr.getMapData).Methods("GET")
 	myRouter.HandleFunc("/api/blocked-nodes", wr.getBlockedNodes).Methods("GET")
 	myRouter.HandleFunc("/api/blocked-nodes", wr.blockNode).Methods("POST")
@@ -920,6 +922,85 @@ func (wr *WebRouter) mapPage(w http.ResponseWriter, r *http.Request) {
 	if err := components.MapPage(pageData).Render(r.Context(), w); err != nil {
 		slog.Error("error rendering map page", "error", err)
 		http.Error(w, "Error rendering page", http.StatusInternalServerError)
+	}
+}
+
+func (wr *WebRouter) blockedNodesPage(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	if !user.IsAdminOrAbove() {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	pageData := components.BlockedNodesPageData{
+		IsSuperuser: user.IsSuperuser,
+		IsAdmin:     user.IsAdminOrAbove(),
+	}
+
+	if err := components.BlockedNodesPage(pageData).Render(r.Context(), w); err != nil {
+		slog.Error("error rendering blocked nodes page", "error", err)
+		http.Error(w, "Error rendering page", http.StatusInternalServerError)
+	}
+}
+
+func (wr *WebRouter) blockedNodesHTML(w http.ResponseWriter, r *http.Request) {
+	session, _ := wr.getSession(r)
+	user, err := wr.getUser(session)
+	if err != nil || user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.IsAdminOrAbove() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	blocked, err := wr.storage.BlockedNodes.GetAll()
+	if err != nil {
+		slog.Error("error fetching blocked nodes", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	rows := make([]components.BlockedNodeRowData, len(blocked))
+	for i, b := range blocked {
+		nodeID := meshtastic.NodeID(b.NodeID)
+		row := components.BlockedNodeRowData{
+			NodeID:    nodeID.String(),
+			NodeColor: nodeID.GetNodeColor(),
+			Reason:    b.Reason,
+			BlockedAt: b.BlockedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		// Look up node info if this node has been seen before
+		if nodeInfo, err := wr.storage.NodeDB.GetNode(b.NodeID); err == nil && nodeInfo != nil {
+			row.LongName = nodeInfo.LongName
+			row.ShortName = nodeInfo.ShortName
+		}
+
+		// Look up who blocked this node
+		if b.BlockedBy != nil {
+			if blocker, err := wr.storage.Users.GetByID(*b.BlockedBy); err == nil && blocker != nil {
+				if blocker.DisplayName != nil && *blocker.DisplayName != "" {
+					row.BlockedBy = *blocker.DisplayName
+				} else {
+					row.BlockedBy = blocker.UserName
+				}
+			}
+		}
+
+		rows[i] = row
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	if err := components.BlockedNodesTableContent(rows).Render(r.Context(), w); err != nil {
+		slog.Error("error rendering blocked nodes HTML", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 

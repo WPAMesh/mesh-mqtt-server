@@ -1,0 +1,197 @@
+package components
+
+import "encoding/json"
+
+func blockedNodesToJSON(nodes []BlockedNodeRowData) string {
+	data, _ := json.Marshal(nodes)
+	return string(data)
+}
+
+templ BlockedNodesPage(data BlockedNodesPageData) {
+	@Base("Blocked Nodes - WPAmesh") {
+		@Layout(LayoutProps{
+			IsSuperuser:    data.IsSuperuser,
+			IsAdmin:        data.IsAdmin,
+			ShowSetupGuide: false,
+		}) {
+			<div id="blocked-nodes-page">
+				<div class="table-controls">
+					<h3>Blocked Nodes</h3>
+					<button class="btn btn-primary" onclick="openBlockNodeModal()">Block Node</button>
+				</div>
+				<table class="table--responsive" id="blocked-nodes-table">
+					<thead>
+						<tr>
+							<th>Node</th>
+							<th>Name</th>
+							<th>Reason</th>
+							<th>Blocked At</th>
+							<th>Blocked By</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody id="blocked-nodes-tbody">
+						<tr>
+							<td colspan="6" class="loading-message">Loading...</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+
+			@BlockNodeModal()
+
+			<script>
+				let allBlockedNodes = [];
+
+				function openBlockNodeModal() {
+					document.getElementById('block-node-id').value = '';
+					document.getElementById('block-reason').value = '';
+					document.getElementById('block-node-modal').classList.add('opened');
+				}
+
+				function closeBlockModal() {
+					document.getElementById('block-node-modal').classList.remove('opened');
+				}
+
+				function submitBlockNode() {
+					const nodeId = document.getElementById('block-node-id').value.trim();
+					const reason = document.getElementById('block-reason').value.trim();
+
+					if (!nodeId) {
+						alert('Node ID is required');
+						return;
+					}
+
+					// Validate node ID format (! followed by 8 hex chars)
+					if (!/^![0-9a-f]{8}$/i.test(nodeId)) {
+						alert('Invalid node ID format. Expected format: !aabbccdd');
+						return;
+					}
+
+					fetch('/api/blocked-nodes', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ node_id: nodeId, reason: reason })
+					})
+					.then(response => {
+						if (!response.ok) {
+							return response.text().then(text => { throw new Error(text || 'Failed to block node'); });
+						}
+						return response.json();
+					})
+					.then(data => {
+						closeBlockModal();
+						refreshBlockedNodesTable();
+					})
+					.catch(error => {
+						alert('Failed to block node: ' + error.message);
+					});
+				}
+
+				function confirmUnblockNode(nodeId, name) {
+					const label = name ? name + ' (' + nodeId + ')' : nodeId;
+					if (confirm('Unblock node ' + label + '?')) {
+						unblockNode(nodeId);
+					}
+				}
+
+				function unblockNode(nodeId) {
+					fetch('/api/blocked-nodes/' + encodeURIComponent(nodeId), {
+						method: 'DELETE'
+					})
+					.then(response => {
+						if (!response.ok) {
+							return response.text().then(text => { throw new Error(text || 'Failed to unblock node'); });
+						}
+						return response.json();
+					})
+					.then(data => {
+						refreshBlockedNodesTable();
+					})
+					.catch(error => {
+						alert('Failed to unblock node: ' + error.message);
+					});
+				}
+			</script>
+		}
+	}
+}
+
+templ BlockNodeModal() {
+	<div id="block-node-modal">
+		<div class="blocked-node-modal-content">
+			<div class="blocked-node-modal-header">
+				<span class="blocked-node-modal-close" onclick="closeBlockModal()">&times;</span>
+				<h2>Block Node</h2>
+			</div>
+			<div class="blocked-node-modal-body">
+				<form id="block-node-form" onsubmit="event.preventDefault(); submitBlockNode();">
+					<div class="form-group">
+						<label for="block-node-id">Node ID</label>
+						<input type="text" id="block-node-id" class="input-field" placeholder="!aabbccdd" required/>
+					</div>
+					<div class="form-group">
+						<label for="block-reason">Reason</label>
+						<input type="text" id="block-reason" class="input-field" placeholder="Flooding the mesh"/>
+					</div>
+				</form>
+			</div>
+			<div class="blocked-node-modal-footer">
+				<button class="btn" onclick="closeBlockModal()">Cancel</button>
+				<button class="btn btn-danger" onclick="submitBlockNode()">Block</button>
+			</div>
+		</div>
+	</div>
+}
+
+templ BlockedNodeRow(node BlockedNodeRowData) {
+	<tr>
+		<td data-label="Node">
+			if node.NodeColor != "" {
+				<span class="node-color-chip" style={ "background-color:" + node.NodeColor }></span>
+			}
+			<code>{ node.NodeID }</code>
+		</td>
+		<td data-label="Name">
+			if node.LongName != "" {
+				{ node.LongName }
+				if node.ShortName != "" {
+					<span class="text-tertiary"> ({ node.ShortName })</span>
+				}
+			} else {
+				<em class="text-tertiary">Unknown</em>
+			}
+		</td>
+		<td data-label="Reason">
+			if node.Reason != "" {
+				{ node.Reason }
+			} else {
+				<em class="text-tertiary">No reason given</em>
+			}
+		</td>
+		<td data-label="Blocked At">{ node.BlockedAt }</td>
+		<td data-label="Blocked By">
+			if node.BlockedBy != "" {
+				{ node.BlockedBy }
+			} else {
+				<em class="text-tertiary">Unknown</em>
+			}
+		</td>
+		<td data-label="Actions">
+			<button class="btn btn-sm btn-primary" onclick={ templ.JSFuncCall("confirmUnblockNode", node.NodeID, node.LongName) }>Unblock</button>
+		</td>
+	</tr>
+}
+
+templ BlockedNodesTableContent(nodes []BlockedNodeRowData) {
+	if len(nodes) == 0 {
+		<tr>
+			<td colspan="6" class="text-tertiary" style="text-align:center; padding:2rem;">No blocked nodes</td>
+		</tr>
+	} else {
+		for _, node := range nodes {
+			@BlockedNodeRow(node)
+		}
+	}
+	@templ.Raw("<script>allBlockedNodes = " + blockedNodesToJSON(nodes) + ";</script>")
+}

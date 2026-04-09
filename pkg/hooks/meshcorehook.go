@@ -18,7 +18,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
 
-var bridgeClientRegex = regexp.MustCompile(`^meshcore-bridge-.+$`)
+var meshcoreClientRegex = regexp.MustCompile(`^meshcore-bridge-.+$`)
 
 // MeshCoreHookOptions contains configuration for the MeshCore hook.
 type MeshCoreHookOptions struct {
@@ -40,25 +40,25 @@ func (h *MeshCoreHook) SetBridgeHook(bh *BridgeHook) {
 	h.bridgeHook = bh
 }
 
-// EnrichClient classifies MeshCore bridge clients during authentication.
+// EnrichClient classifies MeshCore clients during authentication.
 func (h *MeshCoreHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client, user *models.User) bool {
-	if bridgeClientRegex.MatchString(cl.ID) {
-		cd.IsBridgeClient = true
+	if meshcoreClientRegex.MatchString(cl.ID) {
+		cd.IsMeshCoreClient = true
 		return true
 	}
 	return false
 }
 
-// CheckACL handles ACL decisions for MeshCore bridge clients.
+// CheckACL handles ACL decisions for MeshCore clients.
 func (h *MeshCoreHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
-	if !cd.IsBridgeClient {
+	if !cd.IsMeshCoreClient {
 		return false, false
 	}
 	mcPrefix := h.config.Settings.TopicPrefix + "/"
 	if strings.HasPrefix(topic, mcPrefix) {
 		return true, true
 	}
-	h.Log.Debug("bridge client denied access to non-meshcore topic",
+	h.Log.Debug("meshcore client denied access to non-meshcore topic",
 		"client", cd.ClientID, "topic", topic)
 	return true, false
 }
@@ -227,10 +227,10 @@ func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string, client
 		return
 	}
 
-	// Register direct-connect node on its bridge client for connection tracking
+	// Register direct-connect node on its MeshCore client for connection tracking
 	if isDirect && h.config.AuthHook != nil {
-		if bridgeClient := h.config.AuthHook.GetClient(clientID); bridgeClient != nil {
-			bridgeClient.AddDirectMCNode(hex.EncodeToString(advert.PubKey[:]))
+		if meshcoreClient := h.config.AuthHook.GetClient(clientID); meshcoreClient != nil {
+			meshcoreClient.AddDirectMCNode(hex.EncodeToString(advert.PubKey[:]))
 		}
 	}
 

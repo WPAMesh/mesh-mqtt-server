@@ -102,7 +102,7 @@ meshSettings:
 # MeshCore Protocol Support
 # =============================================================================
 # Enables processing of MeshCore protocol packets received via MQTT.
-# MeshCore bridge clients (client ID: meshcore-bridge-*) publish base64-encoded
+# MeshCore clients (client ID: meshcore-bridge-*) publish base64-encoded
 # packets to {topicPrefix}/{mesh_id} topics.
 meshCore:
   enabled: false

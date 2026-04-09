@@ -46,8 +46,8 @@ type OtherClientData struct {
 	UserDisplay string `json:"user_display,omitempty"`
 }
 
-// BridgeClientData represents a MeshCore bridge client for display and API responses
-type BridgeClientData struct {
+// MeshCoreClientData represents a MeshCore client for display and API responses
+type MeshCoreClientData struct {
 	ClientID    string `json:"client_id"`
 	Address     string `json:"address"`
 	UserDisplay string `json:"user_display,omitempty"`
@@ -72,19 +72,19 @@ type ChannelInfo struct {
 
 // MyNodesPageData holds all data for the my nodes page
 type MyNodesPageData struct {
-	Nodes          []NodeData
-	BridgeClients  []BridgeClientData
-	OtherClients   []OtherClientData
-	MqttConfig     *MqttConfigData
-	ShowOnboarding bool
-	IsSuperuser    bool
-	IsAdmin        bool
+	Nodes           []NodeData
+	MeshCoreClients []MeshCoreClientData
+	OtherClients    []OtherClientData
+	MqttConfig      *MqttConfigData
+	ShowOnboarding  bool
+	IsSuperuser     bool
+	IsAdmin         bool
 }
 
 // AllNodesPageData holds all data for the all nodes page
 type AllNodesPageData struct {
 	Nodes            []NodeData
-	BridgeClients    []BridgeClientData
+	MeshCoreClients  []MeshCoreClientData
 	OtherClients     []OtherClientData
 	IsSuperuser      bool
 	IsAdmin          bool
@@ -111,13 +111,13 @@ type BlockedNodesPageData struct {
 
 // BlockedNodeRowData represents a blocked node for display
 type BlockedNodeRowData struct {
-	NodeID      string  `json:"node_id"`
-	NodeColor   string  `json:"node_color,omitempty"`
-	LongName    string  `json:"long_name,omitempty"`
-	ShortName   string  `json:"short_name,omitempty"`
-	Reason      string  `json:"reason"`
-	BlockedAt   string  `json:"blocked_at"`
-	BlockedBy   string  `json:"blocked_by,omitempty"`
+	NodeID    string `json:"node_id"`
+	NodeColor string `json:"node_color,omitempty"`
+	LongName  string `json:"long_name,omitempty"`
+	ShortName string `json:"short_name,omitempty"`
+	Reason    string `json:"reason"`
+	BlockedAt string `json:"blocked_at"`
+	BlockedBy string `json:"blocked_by,omitempty"`
 }
 
 // ForwardingTargetData holds forwarding target status for display

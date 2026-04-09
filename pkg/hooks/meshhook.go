@@ -23,7 +23,7 @@ import (
 const (
 	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
 	unknownProxyPattern = `^Meshtastic(Android|Apple)MqttProxy-(.+)$`
-	channelPattern = `^(msh(?:\/[^\/\n]+?)*)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
+	channelPattern      = `^(msh(?:\/[^\/\n]+?)*)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
 	gatewayTopicPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/([^/]+)\/(![a-f0-9]{8})$`
 
 	// Regex for exact gateway publish topic
@@ -38,7 +38,7 @@ const (
 var (
 	meshDeviceRegex     = regexp.MustCompile(meshDevicePattern)
 	unknownProxyRegex   = regexp.MustCompile(unknownProxyPattern)
-	channelRegex = regexp.MustCompile(channelPattern)
+	channelRegex        = regexp.MustCompile(channelPattern)
 	gatewayTopicRegex   = regexp.MustCompile(gatewayTopicPattern)
 	gatewayPublishRegex = regexp.MustCompile(gatewayPublishPattern)
 	gatewaySubRegex     = regexp.MustCompile(gatewaySubPattern)
@@ -227,8 +227,8 @@ func (h *MeshtasticHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client,
 
 // CheckACL handles Meshtastic-specific ACL decisions for mesh devices and non-mesh clients.
 func (h *MeshtasticHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
-	// Bridge clients are not our concern
-	if cd.IsBridgeClient {
+	// MeshCore clients are not our concern
+	if cd.IsMeshCoreClient {
 		return false, false
 	}
 
@@ -470,7 +470,6 @@ func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
 		}
 	}
 }
-
 
 func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
 	// Try to set root topic from gateway subscription patterns

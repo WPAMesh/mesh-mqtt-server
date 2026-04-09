@@ -209,19 +209,19 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, bridgeClients, otherClients := wr.getNodesData(user, false, true, false)
+	nodes, meshcoreClients, otherClients := wr.getNodesData(user, false, true, false)
 
 	mqttConfig := wr.getTemplMqttConfig(r, user)
 	showOnboarding := user.PasswordHash == "" // Show onboarding if no password set
 
 	pageData := components.MyNodesPageData{
-		Nodes:          nodes,
-		BridgeClients:  bridgeClients,
-		OtherClients:   otherClients,
-		MqttConfig:     mqttConfig,
-		ShowOnboarding: showOnboarding,
-		IsSuperuser:    user.IsSuperuser,
-		IsAdmin:        user.IsAdminOrAbove(),
+		Nodes:           nodes,
+		MeshCoreClients: meshcoreClients,
+		OtherClients:    otherClients,
+		MqttConfig:      mqttConfig,
+		ShowOnboarding:  showOnboarding,
+		IsSuperuser:     user.IsSuperuser,
+		IsAdmin:         user.IsAdminOrAbove(),
 	}
 
 	if err := components.MyNodesPage(pageData).Render(r.Context(), w); err != nil {
@@ -242,7 +242,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, bridgeClients, otherClients := wr.getNodesData(user, true, true, false)
+	nodes, meshcoreClients, otherClients := wr.getNodesData(user, true, true, false)
 
 	// Only superusers can see forwarding status
 	var forwardingStatus *components.ForwardingStatusData
@@ -252,7 +252,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 
 	pageData := components.AllNodesPageData{
 		Nodes:            nodes,
-		BridgeClients:    bridgeClients,
+		MeshCoreClients:  meshcoreClients,
 		OtherClients:     otherClients,
 		IsSuperuser:      user.IsSuperuser,
 		IsAdmin:          user.IsAdminOrAbove(),
@@ -349,9 +349,9 @@ type SetPasswordResponse struct {
 }
 
 type NodesResponse struct {
-	Nodes         []components.NodeData         `json:"nodes"`
-	BridgeClients []components.BridgeClientData `json:"bridge_clients"`
-	OtherClients  []components.OtherClientData  `json:"other_clients"`
+	Nodes           []components.NodeData           `json:"nodes"`
+	MeshCoreClients []components.MeshCoreClientData `json:"meshcore_clients"`
+	OtherClients    []components.OtherClientData    `json:"other_clients"`
 }
 
 func (wr *WebRouter) setMqttPassword(w http.ResponseWriter, r *http.Request) {
@@ -415,13 +415,13 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, bridgeClients, otherClients := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
+	nodes, meshcoreClients, otherClients := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(NodesResponse{
-		Nodes:         nodes,
-		BridgeClients: bridgeClients,
-		OtherClients:  otherClients,
+		Nodes:           nodes,
+		MeshCoreClients: meshcoreClients,
+		OtherClients:    otherClients,
 	})
 }
 
@@ -849,10 +849,10 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Build set of connected MeshCore pubkeys from active bridge clients
+	// Build set of connected MeshCore pubkeys from active MeshCore clients
 	connectedMCKeys := make(map[string]bool)
 	for _, c := range wr.MqttServer.GetAllClients() {
-		if c.IsBridgeClient {
+		if c.IsMeshCoreClient {
 			c.RLock()
 			for k := range c.DirectMCNodes {
 				connectedMCKeys[k] = true

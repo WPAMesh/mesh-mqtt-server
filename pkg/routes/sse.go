@@ -108,7 +108,7 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Helper function to send nodes update
 	sendNodesUpdate := func() error {
-		nodes, bridgeClients, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
+		nodes, meshcoreClients, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
 
 		// Render the template to a buffer
 		var buf bytes.Buffer
@@ -130,13 +130,13 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		// Send bridge clients update
+		// Send meshcore clients update
 		buf.Reset()
-		if err := components.BridgeClientsTableContent(bridgeClients, isAdmin).Render(ctx, &buf); err != nil {
+		if err := components.MeshCoreClientsTableContent(meshcoreClients, isAdmin).Render(ctx, &buf); err != nil {
 			return err
 		}
 
-		_, err = fmt.Fprintf(w, "event: bridge-clients-update\ndata: %s\n\n", escapeSSEData(buf.String()))
+		_, err = fmt.Fprintf(w, "event: meshcore-clients-update\ndata: %s\n\n", escapeSSEData(buf.String()))
 		if err != nil {
 			return err
 		}
@@ -202,8 +202,8 @@ func escapeSSEData(s string) string {
 	return result.String()
 }
 
-// getNodesData retrieves nodes, bridge clients, and other clients data for display
-func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.BridgeClientData, []components.OtherClientData) {
+// getNodesData retrieves nodes, meshcore clients, and other clients data for display
+func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.MeshCoreClientData, []components.OtherClientData) {
 	var clients []*models.ClientDetails
 	if allUsers {
 		clients = wr.MqttServer.GetAllClients()
@@ -212,7 +212,7 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 	}
 
 	nodes := []components.NodeData{}
-	bridgeClients := []components.BridgeClientData{}
+	meshcoreClients := []components.MeshCoreClientData{}
 	otherClients := []components.OtherClientData{}
 
 	knownNodes := []uint32{}
@@ -228,8 +228,8 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			userDisplay = wr.getUserDisplay(c.MqttUserName)
 		}
 
-		if c.IsBridgeClient {
-			bridgeClients = append(bridgeClients, components.BridgeClientData{
+		if c.IsMeshCoreClient {
+			meshcoreClients = append(meshcoreClients, components.MeshCoreClientData{
 				ClientID:    c.ClientID,
 				Address:     ipAddr,
 				UserDisplay: userDisplay,
@@ -343,10 +343,10 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 
 	// Sort nodes and clients for consistent display order
 	components.SortNodes(nodes)
-	components.SortBridgeClients(bridgeClients)
+	components.SortMeshCoreClients(meshcoreClients)
 	components.SortOtherClients(otherClients)
 
-	return nodes, bridgeClients, otherClients
+	return nodes, meshcoreClients, otherClients
 }
 
 // nodesHTML returns HTML fragments for htmx requests

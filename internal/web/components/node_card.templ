@@ -271,10 +271,10 @@ templ NodesTableContent(nodes []NodeData, showUser bool) {
 	@ValidationErrorsData(nodes)
 }
 
-// BridgeClientsTable renders a table of MeshCore bridge clients
+// MeshCoreClientsTable renders a table of MeshCore clients
 // SSE updates handled by vanilla JS
-templ BridgeClientsTable(clients []BridgeClientData, showUser bool) {
-	<table class="table--responsive" id="bridge-clients-table">
+templ MeshCoreClientsTable(clients []MeshCoreClientData, showUser bool) {
+	<table class="table--responsive" id="meshcore-clients-table">
 		<thead>
 			<tr>
 				<th>Client ID</th>
@@ -284,17 +284,17 @@ templ BridgeClientsTable(clients []BridgeClientData, showUser bool) {
 				}
 			</tr>
 		</thead>
-		<tbody id="bridge-clients-tbody">
-			@BridgeClientsTableContent(clients, showUser)
+		<tbody id="meshcore-clients-tbody">
+			@MeshCoreClientsTableContent(clients, showUser)
 		</tbody>
 	</table>
 }
 
-// BridgeClientsTableContent renders just the bridge clients table content (for SSE updates)
-templ BridgeClientsTableContent(clients []BridgeClientData, showUser bool) {
+// MeshCoreClientsTableContent renders just the meshcore clients table content (for SSE updates)
+templ MeshCoreClientsTableContent(clients []MeshCoreClientData, showUser bool) {
 	if len(clients) == 0 {
 		<tr>
-			<td colspan={ otherClientsColSpan(showUser) }><i>No bridge clients</i></td>
+			<td colspan={ otherClientsColSpan(showUser) }><i>No meshcore clients</i></td>
 		</tr>
 	} else {
 		for _, client := range clients {

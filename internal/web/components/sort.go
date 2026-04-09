@@ -18,8 +18,8 @@ func SortNodes(nodes []NodeData) {
 	})
 }
 
-// SortBridgeClients sorts a slice of BridgeClientData by ClientID
-func SortBridgeClients(clients []BridgeClientData) {
+// SortMeshCoreClients sorts a slice of MeshCoreClientData by ClientID
+func SortMeshCoreClients(clients []MeshCoreClientData) {
 	sort.Slice(clients, func(i, j int) bool {
 		return clients[i].ClientID < clients[j].ClientID
 	})

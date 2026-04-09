@@ -33,8 +33,8 @@ templ AllNodesPage(data AllNodesPageData) {
 				<!-- Store validation errors for JavaScript access -->
 				@ValidationErrorsData(data.Nodes)
 
-				<h3 class="mt-6">Bridge Clients</h3>
-				@BridgeClientsTable(data.BridgeClients, true)
+				<h3 class="mt-6">MeshCore Clients</h3>
+				@MeshCoreClientsTable(data.MeshCoreClients, true)
 
 				<h3 class="mt-6">Other Connections</h3>
 				@OtherClientsTable(data.OtherClients, true)

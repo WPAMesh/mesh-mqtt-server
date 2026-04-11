@@ -2,6 +2,8 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
@@ -14,6 +16,7 @@ type MeshCoreNodeStore interface {
 	GetNode(pubKey []byte) (*models.MeshCoreNodeInfo, error)
 	SaveNode(node *models.MeshCoreNodeInfo) error
 	GetAllNodes() ([]*models.MeshCoreNodeInfo, error)
+	GetNodesByPubKeys(pubKeys []string) ([]*models.MeshCoreNodeInfo, error)
 }
 
 type postgresMeshCoreNodeStore struct {
@@ -64,6 +67,29 @@ func (s *postgresMeshCoreNodeStore) GetAllNodes() ([]*models.MeshCoreNodeInfo, e
 	query := selectMeshCoreNodes + ";"
 	nodes := []*models.MeshCoreNodeInfo{}
 	err := s.db.Select(&nodes, query)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+
+// GetNodesByPubKeys retrieves MeshCore nodes by their public keys.
+func (s *postgresMeshCoreNodeStore) GetNodesByPubKeys(pubKeys []string) ([]*models.MeshCoreNodeInfo, error) {
+	if len(pubKeys) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(pubKeys))
+	args := make([]any, len(pubKeys))
+	for i, pk := range pubKeys {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = pk
+	}
+	query := selectMeshCoreNodes + " WHERE encode(pub_key, 'hex') IN (" + strings.Join(placeholders, ", ") + ")"
+	nodes := []*models.MeshCoreNodeInfo{}
+	err := s.db.Select(&nodes, query, args...)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

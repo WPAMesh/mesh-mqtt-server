@@ -2,15 +2,18 @@ package routes
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/a-h/templ"
 	"github.com/kabili207/mesh-mqtt-server/internal/web/components"
 	"github.com/kabili207/mesh-mqtt-server/pkg/models"
+	mccodec "github.com/kabili207/meshcore-go/core/codec"
 )
 
 // ClientNotifier provides a way to notify SSE subscribers about client changes
@@ -215,6 +218,27 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 	meshcoreClients := []components.MeshCoreClientData{}
 	otherClients := []components.OtherClientData{}
 
+	mcPubKeyToNode := make(map[string]*models.MeshCoreNodeInfo)
+	mcPubKeys := []string{}
+	for _, c := range clients {
+		if !c.IsMeshCoreClient {
+			continue
+		}
+		c.RLock()
+		for pk := range c.DirectMCNodes {
+			mcPubKeys = append(mcPubKeys, pk)
+		}
+		c.RUnlock()
+	}
+	if len(mcPubKeys) > 0 {
+		mcNodes, err := wr.storage.MeshCoreNodes.GetNodesByPubKeys(mcPubKeys)
+		if err == nil && mcNodes != nil {
+			for _, n := range mcNodes {
+				mcPubKeyToNode[strings.ToUpper(hex.EncodeToString(n.PubKey))] = n
+			}
+		}
+	}
+
 	knownNodes := []uint32{}
 	for _, c := range clients {
 		if connectedOnly && c.Address == "" {
@@ -229,10 +253,38 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 		}
 
 		if c.IsMeshCoreClient {
+			var nodeType, nodeName, pubKey string
+			var lat, lon *float64
+			var lastSeen *string
+			c.RLock()
+			for pk := range c.DirectMCNodes {
+				if n, ok := mcPubKeyToNode[strings.ToUpper(pk)]; ok && n != nil {
+					pubKey = strings.ToUpper(hex.EncodeToString(n.PubKey))
+					nodeType = mccodec.NodeTypeName(uint8(n.NodeType))
+					nodeName = n.Name
+					if n.HasLocation() {
+						lat = n.Latitude
+						lon = n.Longitude
+					}
+					if n.LastSeen != nil {
+						ls := n.LastSeen.Format("2006-01-02 15:04:05")
+						lastSeen = &ls
+					}
+					break
+				}
+			}
+			c.RUnlock()
 			meshcoreClients = append(meshcoreClients, components.MeshCoreClientData{
 				ClientID:    c.ClientID,
 				Address:     ipAddr,
+				IsConnected: c.Address != "",
 				UserDisplay: userDisplay,
+				PubKey:      pubKey,
+				NodeType:    nodeType,
+				NodeName:    nodeName,
+				Latitude:    lat,
+				Longitude:   lon,
+				LastSeen:    lastSeen,
 			})
 			continue
 		}

@@ -48,9 +48,16 @@ type OtherClientData struct {
 
 // MeshCoreClientData represents a MeshCore client for display and API responses
 type MeshCoreClientData struct {
-	ClientID    string `json:"client_id"`
-	Address     string `json:"address"`
-	UserDisplay string `json:"user_display,omitempty"`
+	ClientID    string   `json:"client_id"`
+	Address     string   `json:"address"`
+	IsConnected bool     `json:"is_connected"`
+	UserDisplay string   `json:"user_display,omitempty"`
+	PubKey      string   `json:"pub_key,omitempty"`
+	NodeType    string   `json:"node_type,omitempty"`
+	NodeName    string   `json:"node_name,omitempty"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
+	LastSeen    *string  `json:"last_seen,omitempty"`
 }
 
 // MqttConfigData holds MQTT configuration for display

@@ -278,6 +278,8 @@ templ MeshCoreClientsTable(clients []MeshCoreClientData, showUser bool) {
 		<thead>
 			<tr>
 				<th>Client ID</th>
+				<th>Node</th>
+				<th>Node Type</th>
 				<th>Address</th>
 				if showUser {
 					<th>User</th>
@@ -294,14 +296,28 @@ templ MeshCoreClientsTable(clients []MeshCoreClientData, showUser bool) {
 templ MeshCoreClientsTableContent(clients []MeshCoreClientData, showUser bool) {
 	if len(clients) == 0 {
 		<tr>
-			<td colspan={ otherClientsColSpan(showUser) }><i>No meshcore clients</i></td>
+			<td colspan={ meshCoreClientsColSpan(showUser) }><i>No meshcore clients</i></td>
 		</tr>
 	} else {
 		for _, client := range clients {
 			<tr>
 				<td>{ client.ClientID }</td>
 				<td>
-					if client.Address != "" {
+					if client.NodeName != "" {
+						{ client.NodeName }
+					} else {
+						<i>unknown</i>
+					}
+				</td>
+				<td>
+					if client.NodeType != "" {
+						{ client.NodeType }
+					} else {
+						<i>-</i>
+					}
+				</td>
+				<td>
+					if client.IsConnected {
 						{ client.Address }
 					} else {
 						<i>disconnected</i>
@@ -470,6 +486,13 @@ func otherClientsColSpan(showUser bool) string {
 		return "3"
 	}
 	return "2"
+}
+
+func meshCoreClientsColSpan(showUser bool) string {
+	if showUser {
+		return "5"
+	}
+	return "4"
 }
 
 func mobileColSpan(showUser bool) string {

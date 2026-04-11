@@ -48,11 +48,11 @@ type BridgeHookOptions struct {
 
 // channelMappingIndex holds parsed and indexed channel mapping data.
 type channelMappingIndex struct {
-	mapping         *config.ChannelMapping
-	meshCoreKey     []byte // Parsed MeshCore channel key
-	meshCoreHash    uint8  // First byte of SHA256(key)
-	meshtasticKey   []byte // Meshtastic PSK for this channel
-	meshtasticHash  uint32 // Meshtastic channel hash
+	mapping        *config.ChannelMapping
+	meshCoreKey    []byte // Parsed MeshCore channel key
+	meshCoreHash   uint8  // First byte of SHA256(key)
+	meshtasticKey  []byte // Meshtastic PSK for this channel
+	meshtasticHash uint32 // Meshtastic channel hash
 }
 
 // BridgeHook handles bidirectional bridging between Meshtastic and MeshCore.
@@ -65,7 +65,7 @@ type BridgeHook struct {
 	mcTopicPrefix string // e.g. "meshcore"
 
 	// Indexed mappings for fast lookup
-	mtMappings map[string]*channelMappingIndex // by "root/channel" key
+	mtMappings map[string]*channelMappingIndex  // by "root/channel" key
 	mcMappings map[uint8][]*channelMappingIndex // by MeshCore channel hash (may have collisions)
 
 	// Loop prevention
@@ -73,9 +73,9 @@ type BridgeHook struct {
 	fingerprintLock sync.RWMutex
 
 	// Identity caches for loop detection
-	mtNodeNames     map[uint32]string      // Meshtastic NodeID -> name (for detecting bridged MC messages)
-	mcNodeNames     map[string]string      // MeshCore pubkey hex prefix -> name (for detecting bridged MT messages)
-	nodeNameLock    sync.RWMutex
+	mtNodeNames  map[uint32]string // Meshtastic NodeID -> name (for detecting bridged MC messages)
+	mcNodeNames  map[string]string // MeshCore pubkey hex prefix -> name (for detecting bridged MT messages)
+	nodeNameLock sync.RWMutex
 
 	// Packet ID counter for Meshtastic packets
 	packetIDCounter uint32
@@ -118,12 +118,17 @@ func (h *BridgeHook) Init(config any) error {
 		return nil
 	}
 
-	// Set up MeshCore topic prefix and regex
-	h.mcTopicPrefix = h.config.Bridge.TopicPrefix
-	if h.mcTopicPrefix == "" {
-		h.mcTopicPrefix = "meshcore"
+	// Set up MeshCore topic based on protocol
+	if h.config.Bridge.Topic != "" {
+		h.mcTopicPrefix = h.config.Bridge.Topic
+	} else {
+		// Set up MeshCore topic prefix and regex (legacy base64 protocol)
+		h.mcTopicPrefix = h.config.Bridge.TopicPrefix
+		if h.mcTopicPrefix == "" {
+			h.mcTopicPrefix = "meshcore"
+		}
+		h.mcTopicRegex = regexp.MustCompile(`^` + regexp.QuoteMeta(h.mcTopicPrefix) + `/([^/]+)$`)
 	}
-	h.mcTopicRegex = regexp.MustCompile(`^` + regexp.QuoteMeta(h.mcTopicPrefix) + `/([^/]+)$`)
 
 	// Parse and index channel mappings
 	for i := range h.config.Bridge.ChannelMappings {
@@ -356,10 +361,17 @@ func (h *BridgeHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 		return pk, nil
 	}
 
-	// Try MeshCore topic
-	if matches := h.mcTopicRegex.FindStringSubmatch(pk.TopicName); len(matches) > 0 {
-		h.handleMeshCoreMessage(pk, matches[1])
+	// Try MeshCore topic (raw-bytes or base64)
+	if h.config.Bridge.Topic != "" && pk.TopicName == h.config.Bridge.Topic {
+		// Raw-bytes protocol
+		h.handleMeshCoreMessage(pk, "bridge")
 		return pk, nil
+	}
+	if h.mcTopicRegex != nil {
+		if matches := h.mcTopicRegex.FindStringSubmatch(pk.TopicName); len(matches) > 0 {
+			h.handleMeshCoreMessage(pk, matches[1])
+			return pk, nil
+		}
 	}
 
 	return pk, nil
@@ -503,11 +515,20 @@ func (h *BridgeHook) handleMeshtasticNodeInfoRequest(idx *channelMappingIndex, p
 
 // handleMeshCoreMessage processes a MeshCore message and bridges to Meshtastic.
 func (h *BridgeHook) handleMeshCoreMessage(pk packets.Packet, meshID string) {
-	// Decode base64 payload (raw MeshCore packet, not RS232 framed)
-	rawData, err := base64.StdEncoding.DecodeString(string(pk.Payload))
-	if err != nil {
-		h.Log.Debug("failed to decode base64 payload", "error", err)
-		return
+	var rawData []byte
+
+	// Check protocol based on config
+	if h.config.Bridge.Topic != "" && pk.TopicName == h.config.Bridge.Topic {
+		// Raw-bytes protocol
+		rawData = []byte(pk.Payload)
+	} else {
+		// Legacy base64 protocol
+		var err error
+		rawData, err = base64.StdEncoding.DecodeString(string(pk.Payload))
+		if err != nil {
+			h.Log.Debug("failed to decode base64 payload", "error", err)
+			return
+		}
 	}
 
 	// Parse MeshCore packet directly from decoded bytes
@@ -658,15 +679,24 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 	copy(payload[1:], encrypted)
 	mcPacket.Payload = payload
 
-	// Encode packet and base64 encode (raw packet, no RS232 framing)
+	// Encode packet
 	packetBytes := mcPacket.WriteTo()
-	b64Payload := base64.StdEncoding.EncodeToString(packetBytes)
 
-	// Publish to MeshCore topic using this bridge's mesh ID
-	topic := h.mcTopicPrefix + "/" + h.config.Bridge.MeshID
+	// Determine topic based on protocol
+	var topic string
+	var payloadData []byte
+	if h.config.Bridge.Topic != "" {
+		// Raw-bytes protocol
+		topic = h.config.Bridge.Topic
+		payloadData = packetBytes
+	} else {
+		// Legacy base64 protocol
+		topic = h.mcTopicPrefix + "/" + h.config.Bridge.MeshID
+		payloadData = []byte(base64.StdEncoding.EncodeToString(packetBytes))
+	}
 
-	go func(t string, payload string) {
-		err := h.config.Server.Publish(t, []byte(payload), false, 0)
+	go func(t string, payload []byte) {
+		err := h.config.Server.Publish(t, payload, false, 0)
 		if err != nil {
 			h.Log.Error("failed to publish to MeshCore", "error", err, "topic", t)
 		} else {
@@ -675,7 +705,7 @@ func (h *BridgeHook) sendToMeshCore(idx *channelMappingIndex, message, channel s
 				"channel", channel,
 				"message_len", len(message))
 		}
-	}(topic, b64Payload)
+	}(topic, payloadData)
 
 	// Also add fingerprint for the sent message to prevent loop on echo
 	fp := computeFingerprint(message, channel, "meshcore")
@@ -893,13 +923,13 @@ func (h *BridgeHook) broadcastVirtualNodeInfo(idx *channelMappingIndex, virtualN
 
 	// Build User (NODEINFO) payload
 	user := &pb.User{
-		Id:              fmt.Sprintf("!%08x", virtualNodeID),
-		LongName:        longName,
-		ShortName:       shortName,
-		HwModel:         pb.HardwareModel_PRIVATE_HW, // Signals this is a bridged/virtual node
-		Role:            role,
-		IsUnmessagable:  &unmessagable,
-		PublicKey:        x25519Key,
+		Id:             fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:       longName,
+		ShortName:      shortName,
+		HwModel:        pb.HardwareModel_PRIVATE_HW, // Signals this is a bridged/virtual node
+		Role:           role,
+		IsUnmessagable: &unmessagable,
+		PublicKey:      x25519Key,
 	}
 
 	rawUser, err := proto.Marshal(user)
@@ -1008,13 +1038,13 @@ func (h *BridgeHook) respondToNodeInfoRequest(idx *channelMappingIndex, requestP
 
 	// Build User (NODEINFO) payload
 	user := &pb.User{
-		Id:              fmt.Sprintf("!%08x", virtualNodeID),
-		LongName:        longName,
-		ShortName:       shortName,
-		HwModel:         pb.HardwareModel_PRIVATE_HW,
-		Role:            role,
-		IsUnmessagable:  &unmessagable,
-		PublicKey:        x25519Key,
+		Id:             fmt.Sprintf("!%08x", virtualNodeID),
+		LongName:       longName,
+		ShortName:      shortName,
+		HwModel:        pb.HardwareModel_PRIVATE_HW,
+		Role:           role,
+		IsUnmessagable: &unmessagable,
+		PublicKey:      x25519Key,
 	}
 
 	rawUser, err := proto.Marshal(user)

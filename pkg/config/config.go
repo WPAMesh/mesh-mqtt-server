@@ -79,7 +79,12 @@ type MeshChannelDef struct {
 type MeshCoreSettings struct {
 	// Enabled controls whether MeshCore packet processing is active
 	Enabled bool
-	// TopicPrefix is the MQTT topic prefix for MeshCore packets (default: "meshcore")
+	// Topic is the MQTT topic for raw-bytes protocol (new firmware).
+	// If set, packets are received as raw bytes instead of base64.
+	// Example: "meshcore/bridge"
+	Topic string
+	// TopicPrefix is the MQTT topic prefix for MeshCore packets (legacy base64 protocol).
+	// Used when Topic is not set. Default: "meshcore"
 	TopicPrefix string
 }
 
@@ -117,7 +122,12 @@ type BridgeSettings struct {
 	Enabled bool
 	// MeshID is this bridge's mesh ID used for outbound messages (e.g., "wpamesh-mqtt")
 	MeshID string
-	// TopicPrefix is the MQTT topic prefix for MeshCore packets (default: "meshcore")
+	// Topic is the MQTT topic for raw-bytes protocol (new firmware).
+	// If set, packets are sent as raw bytes instead of base64.
+	// Example: "meshcore/bridge"
+	Topic string
+	// TopicPrefix is the MQTT topic prefix for MeshCore packets (legacy base64 protocol).
+	// Used when Topic is not set. Default: "meshcore"
 	TopicPrefix string
 	// HopLimit is the max hops for packets bridged to Meshtastic (default: 3, max: 7).
 	// The bridge consumes one hop, so packets are sent with HopStart=HopLimit, HopLimit=HopLimit-1.

@@ -18,7 +18,7 @@ import (
 	"github.com/kabili207/mesh-mqtt-server/pkg/store"
 )
 
-var meshcoreClientRegex = regexp.MustCompile(`^meshcore-bridge-.+$`)
+var meshcoreClientRegex = regexp.MustCompile(`^mc-bridge-.+$`)
 
 // MeshCoreHookOptions contains configuration for the MeshCore hook.
 type MeshCoreHookOptions struct {
@@ -54,6 +54,11 @@ func (h *MeshCoreHook) CheckACL(cd *models.ClientDetails, topic string, write bo
 	if !cd.IsMeshCoreClient {
 		return false, false
 	}
+	// Check raw-bytes topic (new protocol)
+	if h.config.Settings.Topic != "" && topic == h.config.Settings.Topic {
+		return true, true
+	}
+	// Check prefix-based topic (legacy base64 protocol)
 	mcPrefix := h.config.Settings.TopicPrefix + "/"
 	if strings.HasPrefix(topic, mcPrefix) {
 		return true, true
@@ -90,13 +95,18 @@ func (h *MeshCoreHook) Init(config any) error {
 		return nil
 	}
 
-	// Set default topic prefix if not configured
-	if h.config.Settings.TopicPrefix == "" {
-		h.config.Settings.TopicPrefix = "meshcore"
+	// Set defaults based on protocol
+	if h.config.Settings.Topic != "" {
+		h.Log.Info("MeshCore support enabled (raw-bytes protocol)",
+			"topic", h.config.Settings.Topic)
+	} else {
+		// Set default topic prefix for legacy base64 protocol
+		if h.config.Settings.TopicPrefix == "" {
+			h.config.Settings.TopicPrefix = "meshcore"
+		}
+		h.Log.Info("MeshCore support enabled (base64 protocol)",
+			"topic_prefix", h.config.Settings.TopicPrefix)
 	}
-
-	h.Log.Info("MeshCore support enabled",
-		"topic_prefix", h.config.Settings.TopicPrefix)
 
 	return nil
 }
@@ -107,24 +117,33 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 		return pk, nil
 	}
 
-	// Check if topic matches MeshCore pattern: {prefix}/{mesh_id}
-	prefix := h.config.Settings.TopicPrefix + "/"
-	if !strings.HasPrefix(pk.TopicName, prefix) {
-		return pk, nil
-	}
+	var rawData []byte
+	var meshID string
 
-	// Extract mesh ID after prefix
-	meshID := pk.TopicName[len(prefix):]
-	if meshID == "" {
-		return pk, nil
-	}
-
-	// Decode base64 payload (raw MeshCore packet, not RS232 framed)
-	rawData, err := base64.StdEncoding.DecodeString(string(pk.Payload))
-	if err != nil {
-		h.Log.Debug("failed to decode base64 payload",
-			"topic", pk.TopicName,
-			"error", err)
+	// Check raw-bytes topic (new protocol)
+	if h.config.Settings.Topic != "" && pk.TopicName == h.config.Settings.Topic {
+		rawData = []byte(pk.Payload)
+		meshID = "bridge" // Default mesh ID for raw-bytes protocol
+	} else if h.config.Settings.TopicPrefix != "" {
+		// Check prefix-based topic (legacy base64 protocol)
+		prefix := h.config.Settings.TopicPrefix + "/"
+		if !strings.HasPrefix(pk.TopicName, prefix) {
+			return pk, nil
+		}
+		meshID = pk.TopicName[len(prefix):]
+		if meshID == "" {
+			return pk, nil
+		}
+		// Decode base64 payload (raw MeshCore packet, not RS232 framed)
+		var err error
+		rawData, err = base64.StdEncoding.DecodeString(string(pk.Payload))
+		if err != nil {
+			h.Log.Debug("failed to decode base64 payload",
+				"topic", pk.TopicName,
+				"error", err)
+			return pk, nil
+		}
+	} else {
 		return pk, nil
 	}
 

@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"time"
 
@@ -301,7 +302,9 @@ func (h *AuthHook) GetClientByNodeID(nodeID meshtastic.NodeID) *models.ClientDet
 // NotifyClientChange triggers SSE notifications that clients have changed.
 func (h *AuthHook) NotifyClientChange() {
 	if h.config.ClientNotifier != nil {
-		h.Log.Debug("triggering client change notification")
+		h.Log.Debug("triggering client change notification", "notifier_ptr", fmt.Sprintf("%p", h.config.ClientNotifier))
 		h.config.ClientNotifier.Notify()
+	} else {
+		h.Log.Warn("ClientNotifier is nil, cannot notify")
 	}
 }

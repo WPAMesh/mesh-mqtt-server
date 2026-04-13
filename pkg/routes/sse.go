@@ -36,7 +36,7 @@ func (cn *ClientNotifier) Subscribe() chan struct{} {
 	defer cn.mu.Unlock()
 	ch := make(chan struct{}, 1)
 	cn.subscribers[ch] = struct{}{}
-	slog.Debug("SSE subscriber added", "total_subscribers", len(cn.subscribers))
+	slog.Debug("SSE subscriber added", "notifier_ptr", fmt.Sprintf("%p", cn), "total_subscribers", len(cn.subscribers))
 	return ch
 }
 
@@ -46,14 +46,14 @@ func (cn *ClientNotifier) Unsubscribe(ch chan struct{}) {
 	defer cn.mu.Unlock()
 	delete(cn.subscribers, ch)
 	close(ch)
-	slog.Debug("SSE subscriber removed", "total_subscribers", len(cn.subscribers))
+	slog.Debug("SSE subscriber removed", "notifier_ptr", fmt.Sprintf("%p", cn), "total_subscribers", len(cn.subscribers))
 }
 
 // Notify triggers all subscribers about a change
 func (cn *ClientNotifier) Notify() {
 	cn.mu.RLock()
 	defer cn.mu.RUnlock()
-	slog.Debug("notifying SSE subscribers", "count", len(cn.subscribers))
+	slog.Debug("notifying SSE subscribers", "notifier_ptr", fmt.Sprintf("%p", cn), "count", len(cn.subscribers))
 	for ch := range cn.subscribers {
 		select {
 		case ch <- struct{}{}:

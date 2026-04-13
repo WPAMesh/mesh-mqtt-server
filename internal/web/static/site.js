@@ -34,6 +34,7 @@ class NodeSSEManager {
       this.reconnectDelay = 5000; // Reset delay on successful connection attempt
 
       this.eventSource.addEventListener('nodes-update', (e) => {
+        console.log('SSE nodes-update received, data length:', e.data.length);
         const target = document.getElementById('node-grid') || document.getElementById('nodes-tbody');
         if (target) {
           // Preserve expanded state before updating
@@ -43,13 +44,21 @@ class NodeSSEManager {
 
           // Restore expanded state after updating
           restoreExpandedState(expandedIds);
+        }
+      });
 
-          // Execute any inline scripts (for validation errors)
-          this.executeInlineScripts(target);
+      this.eventSource.addEventListener('validation-errors-update', (e) => {
+        console.log('SSE validation-errors-update received');
+        try {
+          const errors = JSON.parse(e.data);
+          nodeValidationErrors = errors;
+        } catch (err) {
+          console.error('Failed to parse validation errors:', err);
         }
       });
 
       this.eventSource.addEventListener('meshcore-clients-update', (e) => {
+        console.log('SSE meshcore-clients-update received, data length:', e.data.length);
         const target = document.getElementById('meshcore-clients-tbody');
         if (target) {
           target.innerHTML = e.data;
@@ -57,6 +66,7 @@ class NodeSSEManager {
       });
 
       this.eventSource.addEventListener('other-clients-update', (e) => {
+        console.log('SSE other-clients-update received, data length:', e.data.length);
         const target = document.getElementById('other-clients-tbody');
         if (target) {
           target.innerHTML = e.data;
@@ -85,17 +95,6 @@ class NodeSSEManager {
       this.eventSource.close();
       this.eventSource = null;
     }
-  }
-
-  executeInlineScripts(container) {
-    // Find and execute any inline scripts (for validation errors data)
-    container.querySelectorAll('script').forEach(script => {
-      try {
-        eval(script.textContent);
-      } catch (e) {
-        console.error('Error executing inline script:', e);
-      }
-    });
   }
 }
 

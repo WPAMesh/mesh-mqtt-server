@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -35,6 +36,7 @@ func (cn *ClientNotifier) Subscribe() chan struct{} {
 	defer cn.mu.Unlock()
 	ch := make(chan struct{}, 1)
 	cn.subscribers[ch] = struct{}{}
+	slog.Debug("SSE subscriber added", "total_subscribers", len(cn.subscribers))
 	return ch
 }
 
@@ -44,17 +46,20 @@ func (cn *ClientNotifier) Unsubscribe(ch chan struct{}) {
 	defer cn.mu.Unlock()
 	delete(cn.subscribers, ch)
 	close(ch)
+	slog.Debug("SSE subscriber removed", "total_subscribers", len(cn.subscribers))
 }
 
 // Notify triggers all subscribers about a change
 func (cn *ClientNotifier) Notify() {
 	cn.mu.RLock()
 	defer cn.mu.RUnlock()
+	slog.Debug("notifying SSE subscribers", "count", len(cn.subscribers))
 	for ch := range cn.subscribers {
 		select {
 		case ch <- struct{}{}:
 		default:
 			// Channel already has a pending notification, skip
+			slog.Debug("SSE subscriber channel full, skipping notification")
 		}
 	}
 }
@@ -133,6 +138,14 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
+		// Send validation errors as a separate JSON event
+		validationErrors := getValidationErrorsData(nodes)
+		validationJSON, _ := json.Marshal(validationErrors)
+		_, err = fmt.Fprintf(w, "event: validation-errors-update\ndata: %s\n\n", string(validationJSON))
+		if err != nil {
+			return err
+		}
+
 		// Send meshcore clients update
 		buf.Reset()
 		if err := components.MeshCoreClientsTableContent(meshcoreClients, isAdmin).Render(ctx, &buf); err != nil {
@@ -171,6 +184,7 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-notifyCh:
 			// Client update notification received
+			slog.Debug("SSE notification received, sending update")
 			if err := sendNodesUpdate(); err != nil {
 				slog.Error("error sending SSE update", "error", err)
 				return
@@ -203,6 +217,17 @@ func escapeSSEData(s string) string {
 		}
 	}
 	return result.String()
+}
+
+// getValidationErrorsData extracts validation errors from nodes for SSE
+func getValidationErrorsData(nodes []components.NodeData) map[string][]string {
+	errors := make(map[string][]string)
+	for _, node := range nodes {
+		if node.NodeID != "" && len(node.ValidationErrors) > 0 {
+			errors[node.NodeID] = node.ValidationErrors
+		}
+	}
+	return errors
 }
 
 // getNodesData retrieves nodes, meshcore clients, and other clients data for display

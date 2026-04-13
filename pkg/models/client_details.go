@@ -282,7 +282,8 @@ func (c *ClientDetails) GetValidationErrors() []string {
 	}
 	if !c.IsUsingGatewayTopic() {
 		errs = append(errs, "Not using a gateway root topic")
-	} else if !c.IsDownlinkVerified() {
+	}
+	if c.IsUsingGatewayTopic() && !c.IsDownlinkVerified() {
 		channelName := "primary channel"
 		if c.NodeDetails != nil && c.NodeDetails.PrimaryChannel != "" {
 			channelName = c.NodeDetails.PrimaryChannel

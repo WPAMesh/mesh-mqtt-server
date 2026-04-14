@@ -89,6 +89,13 @@ meshSettings:
   #   - LongFast
   #   - MediumFast
 
+  # Disable gateway topics system-wide.
+  # When enabled, clients cannot subscribe to gateway topics (msh/.../Gateway/...)
+  # and all publishes to gateway topics are redirected to non-gateway topics.
+  # This effectively forces all clients to use the standard topic structure
+  # and disables the gateway validation system.
+  # disableGatewayTopics: false
+
   # Per-node rate limiting for mesh packets.
   # Limits how many unique packets a single mesh node can send within a time
   # window. Duplicate packets (same packet ID from different gateways) are

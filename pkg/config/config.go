@@ -48,6 +48,11 @@ type MeshSettings struct {
 	// in order until it receives a response. Once a node responds, its primary
 	// channel is recorded and used for future verification attempts.
 	VerificationChannels []string
+	// DisableGatewayTopics forces all clients to use non-gateway topics.
+	// When enabled, gateway topic subscriptions are rejected and gateway
+	// publishes are redirected to the corresponding non-gateway topic.
+	// This effectively disables the gateway functionality system-wide.
+	DisableGatewayTopics bool
 	SelfNode             struct {
 		NodeID    meshtastic.NodeID
 		LongName  string

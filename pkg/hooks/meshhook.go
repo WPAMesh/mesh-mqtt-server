@@ -472,15 +472,29 @@ func (h *MeshtasticHook) TryVerifyNode(clientID string, force bool) {
 }
 
 func (h *MeshtasticHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
-	// Try to set root topic from gateway subscription patterns
 	cd := h.config.AuthHook.GetClient(cl.ID)
 
+	// If gateway topics are disabled, reject gateway subscriptions
+	if h.config.MeshSettings.DisableGatewayTopics {
+		for i, filter := range pk.Filters {
+			if gatewaySubRegex.MatchString(filter.Filter) {
+				h.Log.Info("rejecting gateway topic subscription (gateway topics disabled)",
+					"client", cl.ID,
+					"topic", filter.Filter)
+				// Mark this subscription as failed by setting an error code
+				pk.Filters[i].Qos = 0x80 // QoS error - subscription refused
+			}
+		}
+		return pk
+	}
+
+	// Try to set root topic from gateway subscription patterns
 	if cd != nil && cd.IsMeshDevice() && cd.RootTopic == "" {
 		// Check if subscribing to a gateway topic pattern and extract root topic
 		for _, filter := range pk.Filters {
 			matches := gatewaySubRegex.FindStringSubmatch(filter.Filter)
 			if len(matches) > 0 {
-				cd.RootTopic = matches[1] + matches[2] // e.g., "msh/US/Gateway"
+				cd.RootTopic = matches[1] + matches[2] // e.g. "msh/US/Gateway"
 				h.Log.Debug("set root topic from subscription", "client", cl.ID, "root_topic", cd.RootTopic)
 				go h.config.AuthHook.NotifyClientChange()
 				// Trigger verification now that we have the root topic
@@ -556,6 +570,19 @@ func (h *MeshtasticHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.
 
 	if !strings.HasPrefix(pk.TopicName, "msh/") {
 		return pk, nil
+	}
+
+	// If gateway topics are disabled, redirect gateway publishes to non-gateway topics
+	if h.config.MeshSettings.DisableGatewayTopics {
+		matches := gatewayTopicRegex.FindStringSubmatch(pk.TopicName)
+		if len(matches) > 0 {
+			newTopic := gatewayTopicRegex.ReplaceAllString(pk.TopicName, gatewayReplacement)
+			h.Log.Info("redirecting gateway publish to non-gateway topic (gateway topics disabled)",
+				"client", cl.ID,
+				"original", pk.TopicName,
+				"redirected", newTopic)
+			pk.TopicName = newTopic
+		}
 	}
 
 	var env pb.ServiceEnvelope

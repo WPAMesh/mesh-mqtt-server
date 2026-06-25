@@ -31,13 +31,7 @@ type MeshCoreHookOptions struct {
 // MeshCoreHook handles MeshCore protocol packets received via MQTT.
 type MeshCoreHook struct {
 	mqtt.HookBase
-	config     *MeshCoreHookOptions
-	bridgeHook *BridgeHook
-}
-
-// SetBridgeHook sets the bridge hook reference for broadcasting virtual node updates.
-func (h *MeshCoreHook) SetBridgeHook(bh *BridgeHook) {
-	h.bridgeHook = bh
+	config *MeshCoreHookOptions
 }
 
 // EnrichClient classifies MeshCore clients during authentication.
@@ -251,51 +245,6 @@ func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string, client
 		if meshcoreClient := h.config.AuthHook.GetClient(clientID); meshcoreClient != nil {
 			meshcoreClient.AddDirectMCNode(hex.EncodeToString(advert.PubKey[:]))
 		}
-	}
-
-	// Update virtual node display name if one exists for this pubkey
-	h.syncVirtualNode(nodeInfo)
-}
-
-// syncVirtualNode updates the display name of a virtual node if one exists for this
-// MeshCore pubkey and the name has changed.
-func (h *MeshCoreHook) syncVirtualNode(nodeInfo *models.MeshCoreNodeInfo) {
-	if h.config.Storage == nil || nodeInfo.Name == "" {
-		return
-	}
-
-	virtualNodeID := MCPubKeyToNodeID(nodeInfo.PubKey)
-	existingNode, err := h.config.Storage.VirtualNodes.GetByNodeID(virtualNodeID)
-	if err != nil {
-		h.Log.Warn("failed to look up virtual node for advert sync", "error", err)
-		return
-	}
-	if existingNode == nil {
-		return // No virtual node yet — will be created when they send a message
-	}
-
-	if existingNode.DisplayName == nodeInfo.Name {
-		return // Already up to date
-	}
-
-	oldName := existingNode.DisplayName
-	existingNode.DisplayName = nodeInfo.Name
-	existingNode.LastSeen = time.Now()
-	if err := h.config.Storage.VirtualNodes.Save(existingNode); err != nil {
-		h.Log.Warn("failed to update virtual node from advert",
-			"node_id", virtualNodeID,
-			"error", err)
-		return
-	}
-
-	h.Log.Info("updated virtual node display name from advert",
-		"node_id", virtualNodeID,
-		"old_name", oldName,
-		"new_name", nodeInfo.Name)
-
-	// Broadcast updated NODEINFO to Meshtastic so clients learn the new name
-	if h.bridgeHook != nil && h.bridgeHook.IsEnabled() {
-		h.bridgeHook.BroadcastVirtualNodeUpdate(virtualNodeID, nodeInfo.Name)
 	}
 }
 

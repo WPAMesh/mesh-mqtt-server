@@ -18,7 +18,6 @@ type Configuration struct {
 	MeshSettings MeshSettings
 	MeshCore     MeshCoreSettings
 	Forwarding   ForwardingSettings
-	Bridge       BridgeSettings
 	MeshSense    MeshSenseSettings
 	Database     struct {
 		User     string
@@ -121,32 +120,6 @@ type ForwardingTarget struct {
 	ClientID string
 }
 
-// BridgeSettings configures bidirectional bridging between Meshtastic and MeshCore
-type BridgeSettings struct {
-	// Enabled controls whether bridging is active
-	Enabled bool
-	// MeshID is this bridge's mesh ID used for outbound messages (e.g., "wpamesh-mqtt")
-	MeshID string
-	// Topic is the MQTT topic for raw-bytes protocol (new firmware).
-	// If set, packets are sent as raw bytes instead of base64.
-	// Example: "meshcore/bridge"
-	Topic string
-	// TopicPrefix is the MQTT topic prefix for MeshCore packets (legacy base64 protocol).
-	// Used when Topic is not set. Default: "meshcore"
-	TopicPrefix string
-	// HopLimit is the max hops for packets bridged to Meshtastic (default: 3, max: 7).
-	// The bridge consumes one hop, so packets are sent with HopStart=HopLimit, HopLimit=HopLimit-1.
-	HopLimit int
-	// ChannelMappings defines which Meshtastic channels map to which MeshCore channels
-	ChannelMappings []ChannelMapping
-	// MeshtasticPrefix is prepended to messages bridged TO MeshCore (e.g., "[MT] ")
-	MeshtasticPrefix string
-	// MeshCorePrefix is prepended to messages bridged TO Meshtastic (e.g., "[MC] ")
-	MeshCorePrefix string
-	// ParseSenderName attempts to extract "Name: message" format from MeshCore messages
-	ParseSenderName bool
-}
-
 // MeshSenseSettings configures forwarding node data to a MeshSense instance
 type MeshSenseSettings struct {
 	// Enabled controls whether MeshSense forwarding is active
@@ -155,14 +128,3 @@ type MeshSenseSettings struct {
 	URL string
 }
 
-// ChannelMapping defines a mapping between a Meshtastic channel and MeshCore channel
-type ChannelMapping struct {
-	// MeshtasticChannel is the channel name (e.g., "LongFast")
-	MeshtasticChannel string
-	// MeshtasticTopicRoot is the MQTT topic root (e.g., "msh/US")
-	MeshtasticTopicRoot string
-	// MeshCoreChannelKey is the base64-encoded shared key for MeshCore encryption/decryption
-	MeshCoreChannelKey string
-	// Direction controls which way messages are bridged: "both", "mt_to_mc", "mc_to_mt"
-	Direction string
-}

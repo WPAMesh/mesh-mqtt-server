@@ -117,49 +117,6 @@ meshCore:
   # topicPrefix: meshcore
 
 # =============================================================================
-# Meshtastic <-> MeshCore Bridge
-# =============================================================================
-# Bridges text messages between Meshtastic and MeshCore networks.
-# Requires meshCore.enabled to be true.
-bridge:
-  enabled: false
-
-  # This bridge's mesh ID, used as the topic suffix for outbound messages.
-  # Multiple bridge devices can coexist — each has its own mesh ID.
-  # Inbound messages from any mesh ID are accepted.
-  meshID: my-bridge
-
-  # MQTT topic prefix for MeshCore packets (default: "meshcore")
-  # Must match the root_topic configured on your bridge devices.
-  # topicPrefix: meshcore
-
-  # Maximum hop count for messages bridged to Meshtastic (default: 3, max: 7).
-  # The bridge itself consumes one hop, so a value of 3 sends packets with
-  # HopStart=3, HopLimit=2 (allowing 2 more RF rebroadcasts).
-  # hopLimit: 3
-
-  # Prefix prepended to messages bridged TO MeshCore (so MeshCore users
-  # can see the message originated from Meshtastic)
-  meshtasticPrefix: "[MT] "
-
-  # Prefix prepended to messages bridged TO Meshtastic (so Meshtastic users
-  # can see the message originated from MeshCore)
-  meshCorePrefix: "[MC] "
-
-  # When true, attempts to extract sender name from "Name: message" format
-  # in MeshCore messages
-  parseSenderName: true
-
-  # Channel mappings define which Meshtastic channels are bridged to which
-  # MeshCore encryption channels. Messages from any bridge device on a
-  # matching channel are bridged.
-  channelMappings:
-    - meshtasticChannel: LongFast           # Meshtastic channel name
-      meshtasticTopicRoot: msh/US           # MQTT topic root for this channel
-      meshCoreChannelKey: "base64-key=="    # Shared encryption key (base64)
-      direction: both                       # "both", "mt_to_mc", or "mc_to_mt"
-
-# =============================================================================
 # MeshSense Integration
 # =============================================================================
 # Forward node data (position, telemetry, node info, trace routes) to a

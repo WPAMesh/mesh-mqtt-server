@@ -21,7 +21,6 @@ type Stores struct {
 	OAuthTokens    OAuthTokenStore
 	NodeDB         NodeInfoStore
 	MeshCoreNodes  MeshCoreNodeStore
-	VirtualNodes   VirtualNodeStore
 	BlockedNodes   BlockedNodeStore
 	db             *sqlx.DB
 }
@@ -34,7 +33,6 @@ func New(dbconn *sqlx.DB) (*Stores, error) {
 		OAuthTokens:   NewOAuthTokens(dbconn),
 		NodeDB:        NewNodeDB(dbconn),
 		MeshCoreNodes: NewMeshCoreNodeDB(dbconn),
-		VirtualNodes:  NewVirtualNodeStore(dbconn),
 		BlockedNodes:  NewBlockedNodeStore(dbconn),
 	}, nil
 }

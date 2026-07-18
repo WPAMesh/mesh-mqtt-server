@@ -3,10 +3,8 @@ package hooks
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"regexp"
 	"strings"
-	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
@@ -128,6 +126,13 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 		if meshID == "" {
 			return pk, nil
 		}
+		// The legacy bridge protocol uses a single-segment mesh ID
+		// ({prefix}/{mesh_id}). Topics with further segments belong to another
+		// scheme (e.g. the observer feed {prefix}/{IATA}/{PUBKEY}/{status,packets})
+		// and must not be treated as base64 bridge packets.
+		if strings.Contains(meshID, "/") {
+			return pk, nil
+		}
 		// Decode base64 payload (raw MeshCore packet, not RS232 framed)
 		var err error
 		rawData, err = base64.StdEncoding.DecodeString(string(pk.Payload))
@@ -179,73 +184,7 @@ func (h *MeshCoreHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pa
 
 // processAdvert handles ADVERT payloads by extracting node info and saving to database.
 func (h *MeshCoreHook) processAdvert(packet *codec.Packet, meshID string, clientID string, userID *int) {
-	advert, err := codec.ParseAdvertPayload(packet.Payload)
-	if err != nil {
-		h.Log.Warn("failed to parse ADVERT payload",
-			"mesh_id", meshID,
-			"error", err)
-		return
-	}
-
-	isDirect := packet.PathLen == 0
-
-	// Build log fields
-	logFields := []any{
-		"mesh_id", meshID,
-		"pub_key", advert.PubKey[:8], // First 8 bytes for brevity
-		"timestamp", advert.Timestamp,
-		"is_direct", isDirect,
-	}
-
-	// Only associate user ID with direct-connect nodes, since non-direct
-	// nodes may be heard by multiple bridges with different users.
-	var nodeUserID *int
-	if isDirect {
-		nodeUserID = userID
-	}
-
-	// Extract node info from appdata if present
-	nodeInfo := &models.MeshCoreNodeInfo{
-		PubKey:   advert.PubKey[:],
-		IsDirect: isDirect,
-		UserID:   nodeUserID,
-	}
-	now := time.Now()
-	nodeInfo.LastSeen = &now
-
-	if advert.AppData != nil {
-		nodeInfo.NodeType = int16(advert.AppData.NodeType)
-		nodeInfo.Name = advert.AppData.Name
-		nodeInfo.Latitude = advert.AppData.Lat
-		nodeInfo.Longitude = advert.AppData.Lon
-
-		logFields = append(logFields,
-			"node_type", codec.NodeTypeName(advert.AppData.NodeType),
-			"name", advert.AppData.Name)
-
-		if advert.AppData.HasLocation() {
-			logFields = append(logFields,
-				"lat", *advert.AppData.Lat,
-				"lon", *advert.AppData.Lon)
-		}
-	}
-
-	h.Log.Info("MeshCore ADVERT received", logFields...)
-
-	// Save to database
-	if err := h.config.Storage.MeshCoreNodes.SaveNode(nodeInfo); err != nil {
-		h.Log.Error("failed to save MeshCore node",
-			"pub_key", advert.PubKey[:8],
-			"error", err)
-		return
-	}
-
-	// Register direct-connect node on its MeshCore client for connection tracking
-	if isDirect && h.config.AuthHook != nil {
-		if meshcoreClient := h.config.AuthHook.GetClient(clientID); meshcoreClient != nil {
-			meshcoreClient.AddDirectMCNode(hex.EncodeToString(advert.PubKey[:]))
-		}
-	}
+	processMeshCoreAdvert(h.Log, h.config.Storage, h.config.AuthHook, packet, meshID, clientID, userID)
 }
 
 // Stop gracefully stops the MeshCore hook.

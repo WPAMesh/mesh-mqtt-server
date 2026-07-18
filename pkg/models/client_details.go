@@ -116,6 +116,9 @@ type ClientDetails struct {
 	InvalidPackets     int
 	ValidGWChecker     func() bool
 	IsMeshCoreClient   bool            // True if this is a MeshCore client (mc-bridge-*)
+	IsMeshCoreObserver bool            // True if this is a MeshCore observer client (v1_<pubkey>)
+	ObserverPubKey     []byte          // Ed25519 public key of a MeshCore observer client
+	ObserverName       string          // Human-readable name reported by an observer (origin field)
 	HasPublished       bool            // True if this non-mesh client has published to mesh topics
 	OkToMqttViolations OkToMqttWindow  // Rolling window of packets missing the OkToMQTT bit
 	OkToMqttStats      OkToMqttStats   // Stats tracking for OK to MQTT flag on gateway packets

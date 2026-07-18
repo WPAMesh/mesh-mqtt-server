@@ -36,6 +36,9 @@ templ AllNodesPage(data AllNodesPageData) {
 				<h3 class="mt-6">MeshCore Clients</h3>
 				@MeshCoreClientsTable(data.MeshCoreClients, true)
 
+				<h3 class="mt-6">MeshCore Observers</h3>
+				@ObserversTable(data.Observers, true)
+
 				<h3 class="mt-6">Other Connections</h3>
 				@OtherClientsTable(data.OtherClients, true)
 

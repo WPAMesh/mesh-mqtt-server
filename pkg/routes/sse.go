@@ -116,7 +116,7 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Helper function to send nodes update
 	sendNodesUpdate := func() error {
-		nodes, meshcoreClients, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
+		nodes, meshcoreClients, observers, otherClients := wr.getNodesData(user, isAdmin, connectedOnly, validGatewayOnly)
 
 		// Render the template to a buffer
 		var buf bytes.Buffer
@@ -153,6 +153,17 @@ func (wr *WebRouter) nodesSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err = fmt.Fprintf(w, "event: meshcore-clients-update\ndata: %s\n\n", escapeSSEData(buf.String()))
+		if err != nil {
+			return err
+		}
+
+		// Send observers update
+		buf.Reset()
+		if err := components.ObserversTableContent(observers, isAdmin).Render(ctx, &buf); err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "event: observers-update\ndata: %s\n\n", escapeSSEData(buf.String()))
 		if err != nil {
 			return err
 		}
@@ -231,7 +242,7 @@ func getValidationErrorsData(nodes []components.NodeData) map[string][]string {
 }
 
 // getNodesData retrieves nodes, meshcore clients, and other clients data for display
-func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.MeshCoreClientData, []components.OtherClientData) {
+func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnly bool, validGatewayOnly bool) ([]components.NodeData, []components.MeshCoreClientData, []components.ObserverClientData, []components.OtherClientData) {
 	var clients []*models.ClientDetails
 	if allUsers {
 		clients = wr.MqttServer.GetAllClients()
@@ -241,6 +252,7 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 
 	nodes := []components.NodeData{}
 	meshcoreClients := []components.MeshCoreClientData{}
+	observers := []components.ObserverClientData{}
 	otherClients := []components.OtherClientData{}
 
 	mcPubKeyToNode := make(map[string]*models.MeshCoreNodeInfo)
@@ -310,6 +322,22 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 				Latitude:    lat,
 				Longitude:   lon,
 				LastSeen:    lastSeen,
+			})
+			continue
+		}
+
+		if c.IsMeshCoreObserver {
+			c.RLock()
+			name := c.ObserverName
+			pubKey := strings.ToUpper(hex.EncodeToString(c.ObserverPubKey))
+			c.RUnlock()
+			observers = append(observers, components.ObserverClientData{
+				ClientID:    c.ClientID,
+				Name:        name,
+				PubKey:      pubKey,
+				Address:     ipAddr,
+				IsConnected: c.Address != "",
+				UserDisplay: userDisplay,
 			})
 			continue
 		}
@@ -421,9 +449,10 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 	// Sort nodes and clients for consistent display order
 	components.SortNodes(nodes)
 	components.SortMeshCoreClients(meshcoreClients)
+	components.SortObservers(observers)
 	components.SortOtherClients(otherClients)
 
-	return nodes, meshcoreClients, otherClients
+	return nodes, meshcoreClients, observers, otherClients
 }
 
 // nodesHTML returns HTML fragments for htmx requests
@@ -445,7 +474,7 @@ func (wr *WebRouter) nodesHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, _, _ := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
+	nodes, _, _, _ := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
 
 	w.Header().Set("Content-Type", "text/html")
 

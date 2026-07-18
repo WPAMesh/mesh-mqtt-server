@@ -90,6 +90,24 @@ type MeshCoreSettings struct {
 	// TopicPrefix is the MQTT topic prefix for MeshCore packets (legacy base64 protocol).
 	// Used when Topic is not set. Default: "meshcore"
 	TopicPrefix string
+	// Observer configures ingest of MeshCore observer telemetry, published by
+	// clients such as meshcore-room-server in the meshcoretomqtt JSON format.
+	Observer MeshCoreObserverSettings
+}
+
+// MeshCoreObserverSettings configures ingest of MeshCore observer telemetry.
+// Observers publish JSON status and per-packet messages to
+// {TopicPrefix}/{IATA}/{PUBKEY}/{status,packets} and authenticate with a
+// "v1_<PUBKEY>" username plus an Ed25519-signed JWT or nonce password.
+type MeshCoreObserverSettings struct {
+	// Enabled controls whether observer clients may connect and be ingested.
+	Enabled bool
+	// TopicPrefix is the first segment of observer topics. Default: "meshcore"
+	TopicPrefix string
+	// RequireAudience, when non-empty, rejects observer JWTs whose "aud" claim
+	// does not match this value (typically the broker hostname). Empty skips
+	// the audience check. It does not apply to nonce-based auth.
+	RequireAudience string
 }
 
 // ForwardingSettings configures MQTT packet forwarding to external servers

@@ -331,6 +331,63 @@ templ MeshCoreClientsTableContent(clients []MeshCoreClientData, showUser bool) {
 	}
 }
 
+// ObserversTable renders a table of MeshCore observer clients
+templ ObserversTable(observers []ObserverClientData, showUser bool) {
+	<table class="table--responsive" id="observers-table">
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Public Key</th>
+				<th>Address</th>
+				if showUser {
+					<th>User</th>
+				}
+			</tr>
+		</thead>
+		<tbody id="observers-tbody">
+			@ObserversTableContent(observers, showUser)
+		</tbody>
+	</table>
+}
+
+// ObserversTableContent renders just the observers table content (for SSE updates)
+templ ObserversTableContent(observers []ObserverClientData, showUser bool) {
+	if len(observers) == 0 {
+		<tr>
+			<td colspan={ observersColSpan(showUser) }><i>No observers</i></td>
+		</tr>
+	} else {
+		for _, obs := range observers {
+			<tr>
+				<td>
+					if obs.Name != "" {
+						{ obs.Name }
+					} else {
+						<i>unknown</i>
+					}
+				</td>
+				<td class="mono">
+					if obs.PubKey != "" {
+						{ observerShortKey(obs.PubKey) }
+					} else {
+						<i>-</i>
+					}
+				</td>
+				<td>
+					if obs.IsConnected {
+						{ obs.Address }
+					} else {
+						<i>disconnected</i>
+					}
+				</td>
+				if showUser {
+					<td>{ obs.UserDisplay }</td>
+				}
+			</tr>
+		}
+	}
+}
+
 // OtherClientsTable renders a table of other (non-mesh) clients
 // SSE updates handled by vanilla JS
 templ OtherClientsTable(clients []OtherClientData, showUser bool) {
@@ -493,6 +550,21 @@ func meshCoreClientsColSpan(showUser bool) string {
 		return "5"
 	}
 	return "4"
+}
+
+func observersColSpan(showUser bool) string {
+	if showUser {
+		return "4"
+	}
+	return "3"
+}
+
+// observerShortKey abbreviates a hex public key for compact display.
+func observerShortKey(pubKey string) string {
+	if len(pubKey) <= 16 {
+		return pubKey
+	}
+	return pubKey[:8] + "…" + pubKey[len(pubKey)-8:]
 }
 
 func mobileColSpan(showUser bool) string {

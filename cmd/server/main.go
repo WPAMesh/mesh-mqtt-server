@@ -124,6 +124,25 @@ func run() error {
 		slog.Info("MeshSense forwarding enabled", "url", url)
 	}
 
+	// Add MeshCore observer hook if enabled. It is registered as an ACL checker
+	// before the Meshtastic hook so its scoped observer-feed rules take
+	// precedence over the Meshtastic hook's catch-all for non-mesh clients.
+	var meshCoreObserverHook *hooks.MeshCoreObserverHook
+	if config.MeshCore.Observer.Enabled {
+		meshCoreObserverHook = new(hooks.MeshCoreObserverHook)
+		err = server.AddHook(meshCoreObserverHook, &hooks.MeshCoreObserverHookOptions{
+			Server:   server,
+			Storage:  storage,
+			Settings: config.MeshCore.Observer,
+			AuthHook: authHook,
+		})
+		if err != nil {
+			return fmt.Errorf("error adding meshcore observer hook: %w", err)
+		}
+		authHook.RegisterACLChecker(meshCoreObserverHook)
+		authHook.RegisterObserverAuthenticator(meshCoreObserverHook)
+	}
+
 	// Add Meshtastic protocol hook
 	meshHook := new(hooks.MeshtasticHook)
 	err = server.AddHook(meshHook, &hooks.MeshtasticHookOptions{

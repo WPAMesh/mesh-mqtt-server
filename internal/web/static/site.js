@@ -65,6 +65,14 @@ class NodeSSEManager {
         }
       });
 
+      this.eventSource.addEventListener('observers-update', (e) => {
+        console.log('SSE observers-update received, data length:', e.data.length);
+        const target = document.getElementById('observers-tbody');
+        if (target) {
+          target.innerHTML = e.data;
+        }
+      });
+
       this.eventSource.addEventListener('other-clients-update', (e) => {
         console.log('SSE other-clients-update received, data length:', e.data.length);
         const target = document.getElementById('other-clients-tbody');

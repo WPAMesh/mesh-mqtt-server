@@ -25,6 +25,16 @@ func SortMeshCoreClients(clients []MeshCoreClientData) {
 	})
 }
 
+// SortObservers sorts a slice of ObserverClientData by Name then ClientID
+func SortObservers(observers []ObserverClientData) {
+	sort.Slice(observers, func(i, j int) bool {
+		if observers[i].Name != observers[j].Name {
+			return observers[i].Name < observers[j].Name
+		}
+		return observers[i].ClientID < observers[j].ClientID
+	})
+}
+
 // SortOtherClients sorts a slice of OtherClientData by ClientID
 func SortOtherClients(clients []OtherClientData) {
 	sort.Slice(clients, func(i, j int) bool {

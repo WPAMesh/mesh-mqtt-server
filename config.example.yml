@@ -116,6 +116,20 @@ meshCore:
   # MQTT topic prefix for MeshCore packets (default: "meshcore")
   # topicPrefix: meshcore
 
+  # MeshCore observer ingest. Observer clients (e.g. meshcore-room-server)
+  # publish JSON status and per-packet telemetry to
+  # {topicPrefix}/{IATA}/{PUBKEY}/{status,packets} and authenticate with a
+  # "v1_<PUBKEY>" username plus an Ed25519-signed JWT or nonce password. The
+  # signature proves ownership of the key, so no per-observer provisioning is
+  # needed.
+  observer:
+    enabled: false
+    # Topic prefix for observer topics (default: "meshcore")
+    # topicPrefix: meshcore
+    # If set, reject observer JWTs whose "aud" claim does not match this value
+    # (typically the broker hostname). Leave empty to skip the audience check.
+    # requireAudience: mqtt.example.com
+
 # =============================================================================
 # MeshSense Integration
 # =============================================================================

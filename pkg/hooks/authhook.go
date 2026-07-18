@@ -37,6 +37,17 @@ type ACLChecker interface {
 	CheckACL(cd *models.ClientDetails, topic string, write bool) (handled bool, allowed bool)
 }
 
+// ObserverAuthenticator verifies signature-based observer clients that do not
+// authenticate against the user database. It is registered by the protocol hook
+// that owns observer support.
+type ObserverAuthenticator interface {
+	// AuthenticateObserver validates an observer client's credentials. It
+	// returns the populated ClientDetails on success, or nil if the client is
+	// rejected (for example, observer support is disabled or the signature is
+	// invalid).
+	AuthenticateObserver(cl *mqtt.Client, username, password string) *models.ClientDetails
+}
+
 // ClientLifecycleListener receives notifications after connect/disconnect.
 type ClientLifecycleListener interface {
 	// OnClientAuthenticated is called after a client is successfully
@@ -64,9 +75,10 @@ type AuthHook struct {
 	knownClients map[string]*models.ClientDetails
 	clientLock   sync.RWMutex
 
-	aclCheckers []ACLChecker
-	enrichers   []ClientEnricher
-	listeners   []ClientLifecycleListener
+	aclCheckers  []ACLChecker
+	enrichers    []ClientEnricher
+	listeners    []ClientLifecycleListener
+	observerAuth ObserverAuthenticator
 }
 
 // ID returns the unique identifier for this hook.
@@ -121,11 +133,34 @@ func (h *AuthHook) RegisterLifecycleListener(l ClientLifecycleListener) {
 	h.listeners = append(h.listeners, l)
 }
 
+// RegisterObserverAuthenticator sets the authenticator used for observer
+// clients (usernames prefixed with "v1_").
+func (h *AuthHook) RegisterObserverAuthenticator(a ObserverAuthenticator) {
+	h.observerAuth = a
+}
+
 // OnConnectAuthenticate validates credentials, runs enrichers, and stores the client.
 func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
 	user := string(pk.Connect.Username)
 	pass := pk.Connect.Password
 	clientID := cl.ID
+
+	// MeshCore observer clients authenticate by proving ownership of the
+	// Ed25519 key in their "v1_<PUBKEY>" username rather than against a DB user.
+	if isObserverUsername(user) {
+		if h.observerAuth == nil {
+			h.Log.Warn("observer client rejected: observer support not registered",
+				"username", user, "remote_addr", cl.Net.Remote)
+			return false
+		}
+		cd := h.observerAuth.AuthenticateObserver(cl, user, string(pass))
+		if cd == nil {
+			h.Log.Warn("observer authentication failed", "username", user, "remote_addr", cl.Net.Remote)
+			return false
+		}
+		h.storeAuthenticatedClient(cl, cd)
+		return true
+	}
 
 	validatedUser := h.validateUser(user, string(pass))
 	if validatedUser == nil {
@@ -149,13 +184,20 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 		}
 	}
 
+	h.storeAuthenticatedClient(cl, cd)
+	return true
+}
+
+// storeAuthenticatedClient records a newly authenticated client and notifies
+// lifecycle listeners.
+func (h *AuthHook) storeAuthenticatedClient(cl *mqtt.Client, cd *models.ClientDetails) {
 	h.clientLock.Lock()
-	h.knownClients[clientID] = cd
+	h.knownClients[cd.ClientID] = cd
 	h.clientLock.Unlock()
 
 	h.Log.Info("client authenticated",
-		"username", user,
-		"client", clientID,
+		"username", cd.MqttUserName,
+		"client", cd.ClientID,
 		"display", cd.GetDisplayName())
 
 	// Notify lifecycle listeners asynchronously
@@ -164,8 +206,6 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	}
 
 	go h.NotifyClientChange()
-
-	return true
 }
 
 // OnACLCheck handles generic ACL concerns and delegates to registered checkers.

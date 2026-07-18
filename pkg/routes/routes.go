@@ -211,7 +211,7 @@ func (wr *WebRouter) homePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, meshcoreClients, otherClients := wr.getNodesData(user, false, true, false)
+	nodes, meshcoreClients, _, otherClients := wr.getNodesData(user, false, true, false)
 
 	mqttConfig := wr.getTemplMqttConfig(r, user)
 	showOnboarding := user.PasswordHash == "" // Show onboarding if no password set
@@ -244,7 +244,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, meshcoreClients, otherClients := wr.getNodesData(user, true, true, false)
+	nodes, meshcoreClients, observers, otherClients := wr.getNodesData(user, true, true, false)
 
 	// Only superusers can see forwarding status
 	var forwardingStatus *components.ForwardingStatusData
@@ -255,6 +255,7 @@ func (wr *WebRouter) allNodes(w http.ResponseWriter, r *http.Request) {
 	pageData := components.AllNodesPageData{
 		Nodes:            nodes,
 		MeshCoreClients:  meshcoreClients,
+		Observers:        observers,
 		OtherClients:     otherClients,
 		IsSuperuser:      user.IsSuperuser,
 		IsAdmin:          user.IsAdminOrAbove(),
@@ -353,6 +354,7 @@ type SetPasswordResponse struct {
 type NodesResponse struct {
 	Nodes           []components.NodeData           `json:"nodes"`
 	MeshCoreClients []components.MeshCoreClientData `json:"meshcore_clients"`
+	Observers       []components.ObserverClientData `json:"observers"`
 	OtherClients    []components.OtherClientData    `json:"other_clients"`
 }
 
@@ -417,12 +419,13 @@ func (wr *WebRouter) getNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, meshcoreClients, otherClients := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
+	nodes, meshcoreClients, observers, otherClients := wr.getNodesData(user, allUsers, connectedOnly, validGatewayOnly)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(NodesResponse{
 		Nodes:           nodes,
 		MeshCoreClients: meshcoreClients,
+		Observers:       observers,
 		OtherClients:    otherClients,
 	})
 }
@@ -821,7 +824,7 @@ func (wr *WebRouter) getMapData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodes, _, _ := wr.getNodesData(user, true, false, false)
+	nodes, _, _, _ := wr.getNodesData(user, true, false, false)
 
 	mapNodes := []MapNodeData{}
 

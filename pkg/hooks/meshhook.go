@@ -22,7 +22,10 @@ import (
 )
 
 const (
-	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})$`
+	// The iOS proxy appends a per-install UUID after the node ID
+	// (e.g. MeshtasticAppleMqttProxy-!3369eacc-93C653EA-...), so the node ID is
+	// no longer guaranteed to be the final token. Allow an optional trailing UUID.
+	meshDevicePattern   = `^(?:Meshtastic(Android|Apple)MqttProxy-)?(![0-9a-f]{8})(?:-[0-9A-Fa-f-]+)?$`
 	unknownProxyPattern = `^Meshtastic(Android|Apple)MqttProxy-(.+)$`
 	channelPattern      = `^(msh(?:\/[^\/\n]+?)*)\/2\/e\/(\w+)\/(![a-f0-9]{8})$`
 	gatewayTopicPattern = `^(msh(?:\/[^\/\n]+?)*)(\/Gateway)\/2\/e\/([^/]+)\/(![a-f0-9]{8})$`

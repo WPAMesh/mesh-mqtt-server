@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
@@ -83,6 +84,7 @@ type MeshtasticHook struct {
 	currentPacketId uint32
 	rateLimiter     *NodeRateLimiter
 	stopChan        chan struct{}
+	stopOnce        sync.Once
 }
 
 func (h *MeshtasticHook) ID() string {
@@ -141,15 +143,19 @@ func (h *MeshtasticHook) Init(config any) error {
 	return nil
 }
 
-// Stop gracefully shuts down the hook's background goroutines
+// Stop gracefully shuts down the hook's background goroutines. It is safe to
+// call more than once: mochi's Hooks.Stop calls it on server close, and the
+// server may also stop hooks directly, so the shutdown must be idempotent.
 func (h *MeshtasticHook) Stop() error {
-	h.Log.Info("stopping mesht-hook")
-	if h.stopChan != nil {
-		close(h.stopChan)
-	}
-	if h.rateLimiter != nil {
-		h.rateLimiter.Stop()
-	}
+	h.stopOnce.Do(func() {
+		h.Log.Info("stopping mesht-hook")
+		if h.stopChan != nil {
+			close(h.stopChan)
+		}
+		if h.rateLimiter != nil {
+			h.rateLimiter.Stop()
+		}
+	})
 	return nil
 }
 

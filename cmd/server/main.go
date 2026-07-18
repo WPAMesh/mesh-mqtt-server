@@ -215,21 +215,13 @@ func run() error {
 	<-done
 	slog.Warn("caught signal, stopping...")
 
-	// Stop background tasks
+	// Stop background tasks not managed by the MQTT server
 	if roleSync != nil {
 		roleSync.Stop()
 	}
 
-	// Stop hooks gracefully
-	_ = authHook.Stop()
-	_ = meshHook.Stop()
-	if forwardingHook != nil {
-		_ = forwardingHook.Stop()
-	}
-	if meshCoreHook != nil {
-		_ = meshCoreHook.Stop()
-	}
-
+	// server.Close stops all registered hooks (mochi calls Hook.Stop on each),
+	// so hooks must not be stopped manually here to avoid a double Stop.
 	_ = server.Close()
 	slog.Info("main.go finished")
 	return nil

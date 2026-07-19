@@ -7,10 +7,15 @@ import (
 
 type Configuration struct {
 	ListenAddr    string
-	SessionSecret string
-	BaseURL       string
-	LogLevel      string
-	LogFormat     string
+	// MqttWebsocketAddr is the listen address for the MQTT-over-WebSocket
+	// listener (e.g. ":1882"). When empty, only the plaintext TCP listener on
+	// :1883 is started. TLS is expected to be terminated by a reverse proxy
+	// (e.g. nginx), so this listener speaks plaintext ws.
+	MqttWebsocketAddr string
+	SessionSecret     string
+	BaseURL           string
+	LogLevel          string
+	LogFormat         string
 	OAuth         struct {
 		Discord oauth2.Config
 	}

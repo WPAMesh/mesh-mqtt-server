@@ -91,6 +91,19 @@ func run() error {
 		return fmt.Errorf("error adding TCP listener: %w", err)
 	}
 
+	// Optional MQTT-over-WebSocket listener. TLS is terminated upstream by a
+	// reverse proxy, so this speaks plaintext ws (nginx maps wss:// to it).
+	if config.MqttWebsocketAddr != "" {
+		ws := listeners.NewWebsocket(listeners.Config{
+			ID:      "ws1",
+			Address: config.MqttWebsocketAddr,
+		})
+		if err = server.AddListener(ws); err != nil {
+			return fmt.Errorf("error adding WebSocket listener: %w", err)
+		}
+		slog.Info("MQTT WebSocket listener enabled", "address", config.MqttWebsocketAddr)
+	}
+
 	// Create router and client notifier first
 	router := &routes.WebRouter{}
 	clientNotifier := routes.NewClientNotifier()

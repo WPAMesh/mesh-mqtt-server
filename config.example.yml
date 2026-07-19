@@ -15,6 +15,12 @@
 # Address the web UI listens on (default: ":8000")
 listenAddr: ":8000"
 
+# Optional MQTT-over-WebSocket listener address. The plaintext TCP listener on
+# :1883 is always started; set this to also accept MQTT over WebSocket. TLS is
+# expected to be terminated by a reverse proxy (e.g. nginx), so this speaks
+# plaintext ws. Leave unset to disable.
+# mqttWebsocketAddr: ":1882"
+
 # Public-facing URL for OAuth callbacks and links
 baseURL: "http://localhost:8000"
 

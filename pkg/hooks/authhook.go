@@ -150,12 +150,12 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	if isObserverUsername(user) {
 		if h.observerAuth == nil {
 			h.Log.Warn("observer client rejected: observer support not registered",
-				"username", user, "remote_addr", cl.Net.Remote)
+				"username", user, "client", clientID, "remote_addr", cl.Net.Remote)
 			return false
 		}
 		cd := h.observerAuth.AuthenticateObserver(cl, user, string(pass))
 		if cd == nil {
-			h.Log.Warn("observer authentication failed", "username", user, "remote_addr", cl.Net.Remote)
+			h.Log.Warn("observer authentication failed", "username", user, "client", clientID, "remote_addr", cl.Net.Remote)
 			return false
 		}
 		h.storeAuthenticatedClient(cl, cd)
@@ -164,7 +164,7 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 
 	validatedUser := h.validateUser(user, string(pass))
 	if validatedUser == nil {
-		h.Log.Warn("authentication failed", "username", user, "remote_addr", cl.Net.Remote)
+		h.Log.Warn("authentication failed", "username", user, "client", clientID, "remote_addr", cl.Net.Remote)
 		return false
 	}
 

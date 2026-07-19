@@ -46,14 +46,16 @@ type OtherClientData struct {
 	UserDisplay string `json:"user_display,omitempty"`
 }
 
-// ObserverClientData represents a MeshCore observer client for display and API responses
+// ObserverClientData represents a MeshCore observer for display and API
+// responses. Observers are deduplicated by public key, so a single row may
+// represent multiple live connections (Connections) from the same identity.
 type ObserverClientData struct {
-	ClientID    string `json:"client_id"`
 	Name        string `json:"name,omitempty"`
 	PubKey      string `json:"pub_key,omitempty"`
 	Address     string `json:"address"`
 	IsConnected bool   `json:"is_connected"`
 	UserDisplay string `json:"user_display,omitempty"`
+	Connections int    `json:"connections"`
 }
 
 // MeshCoreClientData represents a MeshCore client for display and API responses

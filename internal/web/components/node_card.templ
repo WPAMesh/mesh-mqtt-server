@@ -3,6 +3,7 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 func nodeValidationErrorsJSON(nodes []NodeData) string {
@@ -339,6 +340,7 @@ templ ObserversTable(observers []ObserverClientData, showUser bool) {
 				<th>Name</th>
 				<th>Public Key</th>
 				<th>Address</th>
+				<th>Conns</th>
 				if showUser {
 					<th>User</th>
 				}
@@ -380,6 +382,7 @@ templ ObserversTableContent(observers []ObserverClientData, showUser bool) {
 						<i>disconnected</i>
 					}
 				</td>
+				<td>{ observerConns(obs.Connections) }</td>
 				if showUser {
 					<td>{ obs.UserDisplay }</td>
 				}
@@ -554,9 +557,9 @@ func meshCoreClientsColSpan(showUser bool) string {
 
 func observersColSpan(showUser bool) string {
 	if showUser {
-		return "4"
+		return "5"
 	}
-	return "3"
+	return "4"
 }
 
 // observerShortKey abbreviates a hex public key for compact display.
@@ -565,6 +568,11 @@ func observerShortKey(pubKey string) string {
 		return pubKey
 	}
 	return pubKey[:8] + "…" + pubKey[len(pubKey)-8:]
+}
+
+// observerConns renders the live connection count for a deduplicated observer.
+func observerConns(n int) string {
+	return strconv.Itoa(n)
 }
 
 func mobileColSpan(showUser bool) string {

@@ -25,13 +25,13 @@ func SortMeshCoreClients(clients []MeshCoreClientData) {
 	})
 }
 
-// SortObservers sorts a slice of ObserverClientData by Name then ClientID
+// SortObservers sorts a slice of ObserverClientData by Name then public key
 func SortObservers(observers []ObserverClientData) {
 	sort.Slice(observers, func(i, j int) bool {
 		if observers[i].Name != observers[j].Name {
 			return observers[i].Name < observers[j].Name
 		}
-		return observers[i].ClientID < observers[j].ClientID
+		return observers[i].PubKey < observers[j].PubKey
 	})
 }
 

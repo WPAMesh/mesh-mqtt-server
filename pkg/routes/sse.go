@@ -252,8 +252,12 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 
 	nodes := []components.NodeData{}
 	meshcoreClients := []components.MeshCoreClientData{}
-	observers := []components.ObserverClientData{}
 	otherClients := []components.OtherClientData{}
+
+	// Observers are deduplicated by public key: one physical observer can hold
+	// several simultaneous connections (each a distinct client ID), so collapse
+	// them into a single row and count the connections.
+	observerByKey := map[string]*components.ObserverClientData{}
 
 	mcPubKeyToNode := make(map[string]*models.MeshCoreNodeInfo)
 	mcPubKeys := []string{}
@@ -331,14 +335,32 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 			name := c.ObserverName
 			pubKey := strings.ToUpper(hex.EncodeToString(c.ObserverPubKey))
 			c.RUnlock()
-			observers = append(observers, components.ObserverClientData{
-				ClientID:    c.ClientID,
-				Name:        name,
-				PubKey:      pubKey,
-				Address:     ipAddr,
-				IsConnected: c.Address != "",
-				UserDisplay: userDisplay,
-			})
+
+			key := pubKey
+			if key == "" {
+				key = c.ClientID // fall back to client ID if the key is missing
+			}
+			if obs, ok := observerByKey[key]; ok {
+				obs.Connections++
+				if c.Address != "" {
+					obs.IsConnected = true
+					if obs.Address == "" {
+						obs.Address = ipAddr
+					}
+				}
+				if obs.Name == "" && name != "" {
+					obs.Name = name
+				}
+			} else {
+				observerByKey[key] = &components.ObserverClientData{
+					Name:        name,
+					PubKey:      pubKey,
+					Address:     ipAddr,
+					IsConnected: c.Address != "",
+					UserDisplay: userDisplay,
+					Connections: 1,
+				}
+			}
 			continue
 		}
 
@@ -444,6 +466,12 @@ func (wr *WebRouter) getNodesData(user *models.User, allUsers bool, connectedOnl
 				})
 			}
 		}
+	}
+
+	// Flatten deduplicated observers into a slice for display.
+	observers := make([]components.ObserverClientData, 0, len(observerByKey))
+	for _, o := range observerByKey {
+		observers = append(observers, *o)
 	}
 
 	// Sort nodes and clients for consistent display order

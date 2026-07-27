@@ -42,7 +42,7 @@ func (h *MeshCoreHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client, u
 }
 
 // CheckACL handles ACL decisions for MeshCore clients.
-func (h *MeshCoreHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
+func (h *MeshCoreHook) CheckACL(cd *models.ClientDetails, cl *mqtt.Client, topic string, write bool) (bool, bool) {
 	if !cd.IsMeshCoreClient {
 		return false, false
 	}

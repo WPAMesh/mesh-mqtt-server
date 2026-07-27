@@ -130,10 +130,10 @@ func (h *MeshCoreObserverHook) AuthenticateObserver(cl *mqtt.Client, username, p
 // subtree). Other authenticated clients, such as mapping tools, get read-only
 // access to the observer status/packets topics so they can consume the feed.
 // Topics outside the observer tree are left to other checkers.
-func (h *MeshCoreObserverHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
+func (h *MeshCoreObserverHook) CheckACL(cd *models.ClientDetails, cl *mqtt.Client, topic string, write bool) (bool, bool) {
 	prefix := h.config.Settings.TopicPrefix + "/"
 
-	if cd.IsMeshCoreObserver {
+	if observerConnection(cd, cl) {
 		if strings.HasPrefix(topic, prefix) {
 			return true, true
 		}
@@ -155,6 +155,21 @@ func (h *MeshCoreObserverHook) CheckACL(cd *models.ClientDetails, topic string, 
 
 	// Not an observer topic; let other checkers decide.
 	return false, false
+}
+
+// observerConnection reports whether the connection being ACL-checked is an
+// observer. The live connection's authenticated username is authoritative: a
+// "v1_" username only reaches the ACL after passing observer JWT verification,
+// so it is trusted over cd.IsMeshCoreObserver, which is looked up by client ID
+// and can be stale when a client reuses its client ID across connections. Falls
+// back to the cached flag when there is no live connection (e.g. in tests).
+func observerConnection(cd *models.ClientDetails, cl *mqtt.Client) bool {
+	if cl != nil {
+		if user := string(cl.Properties.Username); user != "" {
+			return isObserverUsername(user)
+		}
+	}
+	return cd.IsMeshCoreObserver
 }
 
 // isObserverFeedTopic reports whether topic matches the observer feed shape

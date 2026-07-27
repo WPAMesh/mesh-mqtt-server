@@ -33,8 +33,11 @@ type ClientEnricher interface {
 type ACLChecker interface {
 	// CheckACL determines whether the given client is allowed to access
 	// the topic. Returns (handled, allowed). If handled is false, the
-	// next checker in the chain is tried.
-	CheckACL(cd *models.ClientDetails, topic string, write bool) (handled bool, allowed bool)
+	// next checker in the chain is tried. cl is the live connection being
+	// checked; its authenticated username is authoritative for that
+	// connection even when cd (looked up by client ID) is stale because a
+	// client reused its client ID across connections.
+	CheckACL(cd *models.ClientDetails, cl *mqtt.Client, topic string, write bool) (handled bool, allowed bool)
 }
 
 // ObserverAuthenticator verifies signature-based observer clients that do not
@@ -222,6 +225,18 @@ func (h *AuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
 		return false
 	}
 
+	// A client that reuses one client ID across multiple connections (e.g.
+	// firmware pointing two broker configs at the same server) overwrites this
+	// shared entry, so cd may describe a different connection. Checkers must
+	// trust cl's authenticated identity over cd; surface the collision here.
+	if liveUser := string(cl.Properties.Username); liveUser != cd.MqttUserName {
+		h.Log.Warn("client ID reused across connections with differing usernames",
+			"client", cl.ID,
+			"cached_user", cd.MqttUserName,
+			"live_user", liveUser,
+			"topic", topic)
+	}
+
 	// $SYS topics: superuser only
 	if sysFilter.FilterMatches(topic) {
 		isSU, err := h.config.Storage.Users.IsSuperuser(cd.UserID)
@@ -240,7 +255,7 @@ func (h *AuthHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
 
 	// Delegate to registered ACL checkers
 	for _, checker := range h.aclCheckers {
-		handled, allowed := checker.CheckACL(cd, topic, write)
+		handled, allowed := checker.CheckACL(cd, cl, topic, write)
 		if handled {
 			return allowed
 		}

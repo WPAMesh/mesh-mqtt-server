@@ -235,7 +235,7 @@ func (h *MeshtasticHook) EnrichClient(cd *models.ClientDetails, cl *mqtt.Client,
 }
 
 // CheckACL handles Meshtastic-specific ACL decisions for mesh devices and non-mesh clients.
-func (h *MeshtasticHook) CheckACL(cd *models.ClientDetails, topic string, write bool) (bool, bool) {
+func (h *MeshtasticHook) CheckACL(cd *models.ClientDetails, cl *mqtt.Client, topic string, write bool) (bool, bool) {
 	// MeshCore clients are not our concern
 	if cd.IsMeshCoreClient {
 		return false, false

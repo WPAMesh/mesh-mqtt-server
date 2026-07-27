@@ -7,7 +7,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/kabili207/meshcore-go v0.0.0-20260720211657-761a976f0f32
-	github.com/kabili207/meshtastic-go/core v0.0.0-20260306025909-59c7581a2815
+	github.com/kabili207/meshtastic-go v0.0.0-20260624025602-9c9c0dd8bd84
 	github.com/kabili207/slog-helper v0.1.0
 	google.golang.org/protobuf v1.36.11
 )

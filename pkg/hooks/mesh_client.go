@@ -110,7 +110,7 @@ func (c *MeshtasticHook) sendBytes(channel string, rootTopic string, rawInfo []b
 
 	key := crypto.DefaultKey
 
-	channelHash, _ := crypto.ChannelHash(channel, key)
+	channelHash := crypto.ChannelHash(channel, key)
 
 	maxHops := 0
 
